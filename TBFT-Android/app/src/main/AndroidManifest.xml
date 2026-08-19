@@ -26,11 +26,21 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="info.marzan.tbft.WIDGET_REFRESH" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/tbft_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".TbftAodWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/tbft_aod_widget_info" />
         </receiver>
     </application>
 </manifest>
