@@ -45,11 +45,6 @@ public class MainActivity extends Activity {
     private static final String HOME_HOST = "tbft.marzan.info";
     private static final int FILE_CHOOSER_REQUEST = 1001;
 
-    private static final int PAPER = Color.rgb(236, 233, 223);
-    private static final int INK = Color.rgb(41, 43, 39);
-    private static final int INK_SOFT = Color.rgb(102, 105, 97);
-    private static final int INK_FAINT = Color.rgb(132, 134, 126);
-
     private FrameLayout root;
     private LinearLayout nativeScreen;
     private LinearLayout taskList;
@@ -96,17 +91,16 @@ public class MainActivity extends Activity {
 
     private void buildNativeUi() {
         root = new FrameLayout(this);
-        root.setBackground(createAppBackground());
+        root.setBackgroundColor(Color.rgb(14, 14, 14));
         applySafeInsets(root);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        scroll.setClipToPadding(false);
 
         nativeScreen = new LinearLayout(this);
         nativeScreen.setOrientation(LinearLayout.VERTICAL);
-        nativeScreen.setPadding(dp(22), dp(24), dp(22), dp(26));
+        nativeScreen.setPadding(dp(22), dp(22), dp(22), dp(22));
         scroll.addView(nativeScreen, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -121,18 +115,15 @@ public class MainActivity extends Activity {
 
         TextView title = new TextView(this);
         title.setText("TBFT");
-        title.setTextColor(INK);
+        title.setTextColor(Color.WHITE);
         title.setTextSize(18);
         title.setLetterSpacing(0.08f);
         titles.addView(title);
 
         dateText = new TextView(this);
-        dateText.setTextColor(INK_SOFT);
+        dateText.setTextColor(Color.argb(165, 255, 255, 255));
         dateText.setTextSize(12);
-        LinearLayout.LayoutParams dateParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        dateParams.setMargins(0, dp(3), 0, 0);
-        titles.addView(dateText, dateParams);
+        titles.addView(dateText);
 
         Button openFull = minimalButton("Full app  →");
         openFull.setOnClickListener(v -> showFullApp());
@@ -140,9 +131,8 @@ public class MainActivity extends Activity {
         nativeScreen.addView(header);
 
         countText = new TextView(this);
-        countText.setTextColor(INK);
+        countText.setTextColor(Color.WHITE);
         countText.setTextSize(28);
-        countText.setLetterSpacing(-0.015f);
         LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         countParams.setMargins(0, dp(34), 0, dp(18));
@@ -155,11 +145,11 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         syncText = new TextView(this);
-        syncText.setTextColor(INK_FAINT);
+        syncText.setTextColor(Color.argb(105, 255, 255, 255));
         syncText.setTextSize(11);
         LinearLayout.LayoutParams syncParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        syncParams.setMargins(0, dp(20), 0, 0);
+        syncParams.setMargins(0, dp(24), 0, 0);
         nativeScreen.addView(syncText, syncParams);
 
         root.addView(scroll, new FrameLayout.LayoutParams(
@@ -171,19 +161,12 @@ public class MainActivity extends Activity {
         renderTodayScreen();
     }
 
-    private GradientDrawable createAppBackground() {
-        GradientDrawable background = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.rgb(246, 243, 235), PAPER, Color.rgb(229, 224, 212)});
-        return background;
-    }
-
     private Button minimalButton(String label) {
         Button button = new Button(this);
         button.setText(label);
         button.setAllCaps(false);
         button.setTextSize(12);
-        button.setTextColor(INK_SOFT);
+        button.setTextColor(Color.argb(220, 255, 255, 255));
         button.setBackgroundColor(Color.TRANSPARENT);
         button.setPadding(dp(10), dp(6), dp(10), dp(6));
         button.setMinHeight(0);
@@ -209,9 +192,9 @@ public class MainActivity extends Activity {
         if (tasks.isEmpty()) {
             TextView empty = new TextView(this);
             empty.setText(connected ? "Your board is clear." : "Open the full app once to connect your TBFT account.");
-            empty.setTextColor(INK_SOFT);
+            empty.setTextColor(Color.argb(185, 255, 255, 255));
             empty.setTextSize(15);
-            empty.setPadding(dp(2), dp(10), dp(2), dp(10));
+            empty.setPadding(0, dp(8), 0, dp(8));
             taskList.addView(empty);
 
             if (!connected) {
@@ -236,18 +219,16 @@ public class MainActivity extends Activity {
     private View createTaskRow(String task) {
         TextView row = new TextView(this);
         row.setText("○   " + task);
-        row.setTextColor(INK);
+        row.setTextColor(Color.argb(242, 255, 255, 255));
         row.setTextSize(16);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(16), dp(15), dp(16), dp(15));
         row.setSingleLine(false);
 
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.argb(188, 250, 248, 242));
-        bg.setCornerRadius(dp(17));
-        bg.setStroke(dp(1), Color.argb(110, 202, 196, 181));
+        bg.setColor(Color.argb(28, 255, 255, 255));
+        bg.setCornerRadius(dp(16));
         row.setBackground(bg);
-        row.setElevation(dp(1));
         row.setOnClickListener(v -> showFullApp());
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -315,11 +296,11 @@ public class MainActivity extends Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER);
         box.setPadding(dp(32), dp(32), dp(32), dp(32));
-        box.setBackgroundColor(PAPER);
+        box.setBackgroundColor(Color.rgb(14, 14, 14));
 
         TextView message = new TextView(this);
         message.setText("Couldn't reach TBFT.");
-        message.setTextColor(INK);
+        message.setTextColor(Color.WHITE);
         message.setTextSize(17);
         message.setGravity(Gravity.CENTER);
         box.addView(message);
@@ -348,7 +329,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         settings.setSupportZoom(false);
-        settings.setUserAgentString(settings.getUserAgentString() + " TBFT-Android/2.1");
+        settings.setUserAgentString(settings.getUserAgentString() + " TBFT-Android/2.0");
 
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
