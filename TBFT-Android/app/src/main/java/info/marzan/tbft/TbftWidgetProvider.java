@@ -13,8 +13,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.OutputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -40,15 +40,14 @@ public class TbftWidgetProvider extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
         for (int id : appWidgetIds) updateWidget(context, manager, id);
-        startSyncThread(context.getApplicationContext(), null);
+        startSync(context.getApplicationContext(), goAsync());
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
         if (ACTION_REFRESH.equals(intent.getAction())) {
-            PendingResult pending = goAsync();
-            startSyncThread(context.getApplicationContext(), pending);
+            startSync(context.getApplicationContext(), goAsync());
         }
     }
 
@@ -59,7 +58,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
                 .putString(KEY_REFRESH_TOKEN, refreshToken.trim())
                 .remove(KEY_ERROR)
                 .apply();
-        startSyncThread(context.getApplicationContext(), null);
+        startSync(context.getApplicationContext(), null);
     }
 
     public static void updateAll(Context context) {
@@ -111,7 +110,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
             String time = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(syncTime));
             views.setTextViewText(R.id.widget_sync, "Synced " + time);
         } else {
-            views.setTextViewText(R.id.widget_sync, "Open TBFT once, then tap refresh");
+            views.setTextViewText(R.id.widget_sync, "Tap ↻ to refresh");
         }
 
         Intent openIntent = new Intent(context, MainActivity.class);
@@ -131,13 +130,13 @@ public class TbftWidgetProvider extends AppWidgetProvider {
         manager.updateAppWidget(widgetId, views);
     }
 
-    private static void startSyncThread(Context context, PendingResult pending) {
+    private static void startSync(Context context, PendingResult pendingResult) {
         new Thread(() -> {
             try {
                 syncNow(context);
             } finally {
-                if (pending != null) {
-                    try { pending.finish(); } catch (Exception ignored) { }
+                if (pendingResult != null) {
+                    try { pendingResult.finish(); } catch (Exception ignored) { }
                 }
             }
         }, "tbft-widget-sync").start();
@@ -211,7 +210,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
             editor.apply();
             updateAll(context);
         } catch (Exception e) {
-            prefs.edit().putString(KEY_ERROR, "Couldn't sync. Tap refresh or open TBFT.").apply();
+            prefs.edit().putString(KEY_ERROR, "Couldn't sync. Tap ↻ or open TBFT.").apply();
             updateAll(context);
         } finally {
             if (connection != null) connection.disconnect();
