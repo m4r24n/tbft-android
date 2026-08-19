@@ -10,12 +10,12 @@ import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -33,6 +33,7 @@ import android.net.http.SslError;
 
 public class MainActivity extends Activity {
     private static final String HOME_URL = "https://tbft.marzan.info";
+    private static final String HOME_HOST = "tbft.marzan.info";
     private static final int FILE_CHOOSER_REQUEST = 1001;
 
     private WebView webView;
@@ -57,19 +58,11 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.rgb(17, 17, 17));
 
-        // Android 15 / targetSdk 35 uses edge-to-edge layouts by default.
-        // Apply the real system-bar and display-cutout insets to the app root so
-        // the TBFT web navigation never sits under the camera cutout, status bar,
-        // gesture area, or 3-button navigation bar.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             root.setOnApplyWindowInsetsListener((view, windowInsets) -> {
                 android.graphics.Insets safeInsets = windowInsets.getInsets(
                         WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-                view.setPadding(
-                        safeInsets.left,
-                        safeInsets.top,
-                        safeInsets.right,
-                        safeInsets.bottom);
+                view.setPadding(safeInsets.left, safeInsets.top, safeInsets.right, safeInsets.bottom);
                 return windowInsets;
             });
         } else {
@@ -134,11 +127,10 @@ public class MainActivity extends Activity {
         retry.setText("Retry");
         retry.setOnClickListener(v -> loadHome());
         box.addView(retry);
-
         return box;
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     private void configureWebView() {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -152,25 +144,26 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         settings.setSupportZoom(false);
-        settings.setUserAgentString(settings.getUserAgentString() + " TBFT-Android/1.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " TBFT-Android/1.1");
 
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
         cookies.setAcceptThirdPartyCookies(webView, true);
+
+        webView.addJavascriptInterface(new WidgetSessionBridge(), "TBFTAndroid");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String scheme = uri.getScheme();
-                if ("https".equalsIgnoreCase(scheme)) {
+                String host = uri.getHost();
+                if ("https".equalsIgnoreCase(scheme) && HOME_HOST.equalsIgnoreCase(host)) {
                     return false;
                 }
                 if ("mailto".equalsIgnoreCase(scheme) || "tel".equalsIgnoreCase(scheme)) {
-                    try {
-                        startActivity(new Intent(Intent.ACTION_VIEW, uri));
-                    } catch (ActivityNotFoundException ignored) { }
-                    return true;
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
+                    catch (ActivityNotFoundException ignored) { }
                 }
                 return true;
             }
@@ -179,13 +172,12 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 errorView.setVisibility(View.GONE);
                 CookieManager.getInstance().flush();
+                if (url != null && url.startsWith(HOME_URL)) captureWidgetSession();
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) {
-                    showError();
-                }
+                if (request.isForMainFrame()) showError();
             }
 
             @Override
@@ -222,6 +214,18 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void captureWidgetSession() {
+        String script = "(function(){try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(!k)continue;if(k.indexOf('sb-')===0&&k.indexOf('-auth-token')>0){var raw=localStorage.getItem(k);if(!raw)continue;var obj=JSON.parse(raw);var token=obj&&obj.refresh_token;if(token){TBFTAndroid.saveRefreshToken(token);return 'ok';}}}}catch(e){}return 'none';})();";
+        webView.evaluateJavascript(script, null);
+    }
+
+    private class WidgetSessionBridge {
+        @JavascriptInterface
+        public void saveRefreshToken(String refreshToken) {
+            TbftWidgetProvider.saveRefreshToken(getApplicationContext(), refreshToken);
+        }
+    }
+
     private boolean hasNetwork() {
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm == null || cm.getActiveNetwork() == null) return false;
@@ -245,11 +249,8 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
+        if (webView.canGoBack()) webView.goBack();
+        else super.onBackPressed();
     }
 
     @Override
@@ -273,6 +274,7 @@ public class MainActivity extends Activity {
         if (webView != null) {
             webView.loadUrl("about:blank");
             webView.stopLoading();
+            webView.removeJavascriptInterface("TBFTAndroid");
             webView.setWebChromeClient(null);
             webView.setWebViewClient(null);
             webView.destroy();
