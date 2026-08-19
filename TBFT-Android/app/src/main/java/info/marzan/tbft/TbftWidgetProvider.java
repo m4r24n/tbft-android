@@ -40,14 +40,15 @@ public class TbftWidgetProvider extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
         for (int id : appWidgetIds) updateWidget(context, manager, id);
-        syncInBackground(context);
+        startSyncThread(context.getApplicationContext(), null);
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
         if (ACTION_REFRESH.equals(intent.getAction())) {
-            syncInBackground(context);
+            PendingResult pending = goAsync();
+            startSyncThread(context.getApplicationContext(), pending);
         }
     }
 
@@ -58,7 +59,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
                 .putString(KEY_REFRESH_TOKEN, refreshToken.trim())
                 .remove(KEY_ERROR)
                 .apply();
-        syncInBackground(context);
+        startSyncThread(context.getApplicationContext(), null);
     }
 
     public static void updateAll(Context context) {
@@ -105,12 +106,12 @@ public class TbftWidgetProvider extends AppWidgetProvider {
         }
 
         if (!error.isEmpty()) {
-            views.setTextViewText(R.id.widget_sync, "Sync needs attention · tap TBFT");
+            views.setTextViewText(R.id.widget_sync, "Sync needs attention · open TBFT");
         } else if (syncTime > 0L) {
             String time = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(syncTime));
             views.setTextViewText(R.id.widget_sync, "Synced " + time);
         } else {
-            views.setTextViewText(R.id.widget_sync, "Tap refresh after opening TBFT once");
+            views.setTextViewText(R.id.widget_sync, "Open TBFT once, then tap refresh");
         }
 
         Intent openIntent = new Intent(context, MainActivity.class);
@@ -130,13 +131,14 @@ public class TbftWidgetProvider extends AppWidgetProvider {
         manager.updateAppWidget(widgetId, views);
     }
 
-    public static void syncInBackground(Context context) {
-        final PendingResult pending = new TbftWidgetProvider().goAsync();
+    private static void startSyncThread(Context context, PendingResult pending) {
         new Thread(() -> {
             try {
-                syncNow(context.getApplicationContext());
+                syncNow(context);
             } finally {
-                try { pending.finish(); } catch (Exception ignored) { }
+                if (pending != null) {
+                    try { pending.finish(); } catch (Exception ignored) { }
+                }
             }
         }, "tbft-widget-sync").start();
     }
