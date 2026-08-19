@@ -64,6 +64,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
                 new android.content.ComponentName(context, TbftWidgetProvider.class);
         int[] ids = manager.getAppWidgetIds(component);
         for (int id : ids) updateWidget(context, manager, id);
+        TbftAodWidgetProvider.updateAll(context);
     }
 
     private static void updateWidget(Context context, AppWidgetManager manager, int widgetId) {
