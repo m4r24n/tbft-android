@@ -141,7 +141,8 @@ public class MainActivity extends Activity {
         taskList = new LinearLayout(this);
         taskList.setOrientation(LinearLayout.VERTICAL);
         nativeScreen.addView(taskList, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
         syncText = new TextView(this);
         syncText.setTextColor(Color.argb(105, 255, 255, 255));
