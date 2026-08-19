@@ -9,12 +9,6 @@ import android.content.SharedPreferences;
 import android.view.View;
 import android.widget.RemoteViews;
 
-import androidx.work.Constraints;
-import androidx.work.ExistingPeriodicWorkPolicy;
-import androidx.work.NetworkType;
-import androidx.work.PeriodicWorkRequest;
-import androidx.work.WorkManager;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -28,7 +22,6 @@ import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public class TbftWidgetProvider extends AppWidgetProvider {
     public static final String PREFS = "tbft_widget";
@@ -36,9 +29,9 @@ public class TbftWidgetProvider extends AppWidgetProvider {
     public static final String KEY_SYNC_TIME = "sync_time";
     public static final String KEY_REFRESH_TOKEN = "refresh_token";
     public static final String KEY_ERROR = "sync_error";
+    public static final String KEY_BOARD_DATE = "board_date";
 
     private static final String WIDGET_API = "https://tbft.marzan.info/api/widget/tasks";
-    private static final String PERIODIC_WORK_NAME = "tbft-widget-periodic-sync";
 
     private static final int[] TASK_IDS = {
             R.id.task1, R.id.task2, R.id.task3,
@@ -46,21 +39,8 @@ public class TbftWidgetProvider extends AppWidgetProvider {
     };
 
     @Override
-    public void onEnabled(Context context) {
-        super.onEnabled(context);
-        schedulePeriodicSync(context.getApplicationContext());
-    }
-
-    @Override
-    public void onDisabled(Context context) {
-        super.onDisabled(context);
-        WorkManager.getInstance(context.getApplicationContext()).cancelUniqueWork(PERIODIC_WORK_NAME);
-    }
-
-    @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
         for (int id : appWidgetIds) updateWidget(context, manager, id);
-        schedulePeriodicSync(context.getApplicationContext());
         startSync(context.getApplicationContext(), goAsync());
     }
 
@@ -71,26 +51,11 @@ public class TbftWidgetProvider extends AppWidgetProvider {
                 .putString(KEY_REFRESH_TOKEN, refreshToken.trim())
                 .remove(KEY_ERROR)
                 .apply();
-        schedulePeriodicSync(context.getApplicationContext());
-        startSync(context.getApplicationContext(), null);
+        requestImmediateSync(context);
     }
 
-    public static void schedulePeriodicSync(Context context) {
-        Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build();
-
-        PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
-                TbftWidgetWorker.class,
-                15,
-                TimeUnit.MINUTES)
-                .setConstraints(constraints)
-                .build();
-
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                PERIODIC_WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
-                request);
+    public static void requestImmediateSync(Context context) {
+        startSync(context.getApplicationContext(), null);
     }
 
     public static void updateAll(Context context) {
@@ -128,7 +93,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
             if (!error.isEmpty()) {
                 views.setTextViewText(R.id.empty_text, error);
             } else if (!hasSession) {
-                views.setTextViewText(R.id.empty_text, "Open TBFT once to connect the widget");
+                views.setTextViewText(R.id.empty_text, "Open TBFT once to connect");
             } else {
                 views.setTextViewText(R.id.empty_text, "You're clear for now");
             }
@@ -140,9 +105,9 @@ public class TbftWidgetProvider extends AppWidgetProvider {
             views.setTextViewText(R.id.widget_sync, "Sync needs attention · open TBFT");
         } else if (syncTime > 0L) {
             String time = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(syncTime));
-            views.setTextViewText(R.id.widget_sync, "Updated " + time + " · auto every 15 min");
+            views.setTextViewText(R.id.widget_sync, "Updated " + time + " · every 30 min");
         } else {
-            views.setTextViewText(R.id.widget_sync, "Auto-updates every 15 min");
+            views.setTextViewText(R.id.widget_sync, "Updates automatically every 30 min");
         }
 
         Intent openIntent = new Intent(context, MainActivity.class);
@@ -158,7 +123,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
     private static void startSync(Context context, PendingResult pendingResult) {
         new Thread(() -> {
             try {
-                syncNowForWorker(context);
+                syncNow(context);
             } finally {
                 if (pendingResult != null) {
                     try { pendingResult.finish(); } catch (Exception ignored) { }
@@ -167,7 +132,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
         }, "tbft-widget-sync").start();
     }
 
-    public static void syncNowForWorker(Context context) {
+    private static void syncNow(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String refreshToken = prefs.getString(KEY_REFRESH_TOKEN, "");
         if (refreshToken.isEmpty()) {
@@ -204,7 +169,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
 
             JSONObject response = new JSONObject(raw.toString());
             if (code < 200 || code >= 300) {
-                String message = response.optString("error", "Unable to refresh TBFT widget");
+                String message = response.optString("error", "Unable to refresh TBFT");
                 prefs.edit().putString(KEY_ERROR, message).apply();
                 updateAll(context);
                 return;
@@ -227,11 +192,13 @@ public class TbftWidgetProvider extends AppWidgetProvider {
             }
 
             String rotatedRefreshToken = response.optString("refreshToken", "").trim();
+            String boardDate = response.optString("boardDate", "").trim();
             SharedPreferences.Editor editor = prefs.edit()
                     .putString(KEY_TASKS, encode(tasks))
                     .putLong(KEY_SYNC_TIME, System.currentTimeMillis())
                     .remove(KEY_ERROR);
             if (!rotatedRefreshToken.isEmpty()) editor.putString(KEY_REFRESH_TOKEN, rotatedRefreshToken);
+            if (!boardDate.isEmpty() && !"null".equals(boardDate)) editor.putString(KEY_BOARD_DATE, boardDate);
             editor.apply();
             updateAll(context);
         } catch (Exception e) {
@@ -252,6 +219,11 @@ public class TbftWidgetProvider extends AppWidgetProvider {
             sb.append(clean);
         }
         return sb.toString();
+    }
+
+    public static List<String> getCachedTasks(Context context) {
+        return decode(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_TASKS, ""));
     }
 
     private static List<String> decode(String stored) {
