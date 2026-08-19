@@ -25,66 +25,12 @@
         android:textColor="#A6FFFFFF"
         android:textSize="11sp" />
 
-    <TextView
-        android:id="@+id/task1"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:paddingTop="3dp"
-        android:paddingBottom="3dp"
-        android:textColor="#F2FFFFFF"
-        android:textSize="14sp" />
-    <TextView
-        android:id="@+id/task2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:paddingTop="3dp"
-        android:paddingBottom="3dp"
-        android:textColor="#F2FFFFFF"
-        android:textSize="14sp" />
-    <TextView
-        android:id="@+id/task3"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:paddingTop="3dp"
-        android:paddingBottom="3dp"
-        android:textColor="#F2FFFFFF"
-        android:textSize="14sp" />
-    <TextView
-        android:id="@+id/task4"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:paddingTop="3dp"
-        android:paddingBottom="3dp"
-        android:textColor="#F2FFFFFF"
-        android:textSize="14sp" />
-    <TextView
-        android:id="@+id/task5"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:paddingTop="3dp"
-        android:paddingBottom="3dp"
-        android:textColor="#F2FFFFFF"
-        android:textSize="14sp" />
-    <TextView
-        android:id="@+id/task6"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:paddingTop="3dp"
-        android:paddingBottom="3dp"
-        android:textColor="#F2FFFFFF"
-        android:textSize="14sp" />
+    <TextView android:id="@+id/task1" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
+    <TextView android:id="@+id/task2" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
+    <TextView android:id="@+id/task3" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
+    <TextView android:id="@+id/task4" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
+    <TextView android:id="@+id/task5" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
+    <TextView android:id="@+id/task6" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
 
     <TextView
         android:id="@+id/empty_text"
@@ -92,7 +38,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:gravity="center_vertical"
-        android:text="Open TBFT once to connect the widget"
+        android:text="Open TBFT once to connect"
         android:textColor="#BFFFFFFF"
         android:textSize="13sp" />
 
@@ -101,7 +47,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="Auto-updates every 15 min"
+        android:text="Updates automatically every 30 min"
         android:textColor="#7FFFFFFF"
         android:textSize="10sp" />
 </LinearLayout>
