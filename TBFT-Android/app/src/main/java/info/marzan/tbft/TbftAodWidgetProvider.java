@@ -31,7 +31,7 @@ public class TbftAodWidgetProvider extends AppWidgetProvider {
 
     private static void updateWidget(Context context, AppWidgetManager manager, int widgetId) {
         List<String> tasks = TbftWidgetProvider.getCachedTasks(context);
-        boolean connected = !TbftRepository.get(context).workspaceId().isEmpty();
+        boolean connected = TbftRepository.get(context).downloaded();
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.tbft_aod_widget);
         int count = tasks.size();

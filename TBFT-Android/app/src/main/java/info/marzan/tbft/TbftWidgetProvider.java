@@ -34,7 +34,7 @@ public class TbftWidgetProvider extends AppWidgetProvider {
             if (i < lines.size()) views.setTextViewText(TASK_IDS[i], "○  " + lines.get(i));
         }
         views.setViewVisibility(R.id.empty_text, lines.isEmpty() ? View.VISIBLE : View.GONE);
-        views.setTextViewText(R.id.empty_text, repo.workspaceId().isEmpty() ? "Open TBFT to download your workspace" : "You're clear for now");
+        views.setTextViewText(R.id.empty_text, !repo.downloaded() ? "Open TBFT to finish downloading your workspace" : "You're clear for now");
         views.setTextViewText(R.id.widget_sync, (lines.size() > TASK_IDS.length ? "+" + (lines.size() - TASK_IDS.length) + " more · " : "") + repo.status());
         Intent intent = new Intent(context, MainActivity.class);
         PendingIntent open = PendingIntent.getActivity(context, 1, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);

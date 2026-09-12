@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.List;
 
 final class Json {
+    static String now() { return java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS).toString(); }
     static JSONObject object(String raw) {
         try { return new JSONObject(raw); }
         catch (Exception e) { throw new IllegalArgumentException("Invalid saved record", e); }

@@ -20,6 +20,8 @@ public class MainActivity extends Activity {
     private TbftRepository repo;
     private LinearLayout page, body;
     private TextView sync;
+    private ScrollView contentScroll;
+    private String renderedPage = "";
     private String tab = "Today", date = "", projectId = "";
     private boolean registered;
     private final Handler clock = new Handler(Looper.getMainLooper());
@@ -33,11 +35,16 @@ public class MainActivity extends Activity {
     @Override protected void onStart() {
         super.onStart();
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(receiver, new IntentFilter(TbftRepository.CHANGED), Context.RECEIVER_NOT_EXPORTED);
-        else registerReceiver(receiver, new IntentFilter(TbftRepository.CHANGED));
+        else registerLegacyReceiver();
         registered = true; repo.requestSync(); clock.postDelayed(tick, 60000);
     }
     @Override protected void onStop() {
         clock.removeCallbacks(tick); if (registered) { unregisterReceiver(receiver); registered = false; } super.onStop();
+    }
+    // Before API 33 there is no NOT_EXPORTED flag; a signature permission restricts senders.
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private void registerLegacyReceiver() {
+        registerReceiver(receiver,new IntentFilter(TbftRepository.CHANGED),getPackageName()+".permission.LOCAL_UPDATES",null);
     }
     @Override public void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out); out.putString("tab", tab); out.putString("date", date); out.putString("project", projectId);
@@ -63,6 +70,9 @@ public class MainActivity extends Activity {
     }
     private void render() {
         if (isFinishing() || isDestroyed()) return;
+        String location = tab + ":" + projectId + ":" + (tab.equals("Today") ? repo.today() : date);
+        int previousY = contentScroll != null && location.equals(renderedPage) ? contentScroll.getScrollY() : 0;
+        renderedPage = location;
         page = column(); page.setBackgroundColor(BG);
         page.setOnApplyWindowInsetsListener((v, insets) -> {
             v.setPadding(dp(14) + insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
@@ -75,6 +85,7 @@ public class MainActivity extends Activity {
         button(header, "Sync", () -> { repo.requestSync(); toast("Sync requested. You can keep working."); }); page.addView(header);
         sync = text(page, repo.status(), 12, MUTED); sync.setOnClickListener(v -> queue());
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true);
+        contentScroll = scroll;
         body = column(); body.setPadding(0, dp(10), 0, dp(20)); scroll.addView(body);
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         if (repo.workspaceId().isEmpty()) {
@@ -96,6 +107,7 @@ public class MainActivity extends Activity {
             b.setLayoutParams(new LinearLayout.LayoutParams(0, dp(54), 1)); b.setTextSize(12); b.setPadding(0,0,0,0);
         }
         page.addView(nav); setContentView(page); page.requestApplyInsets();
+        if (previousY > 0) scroll.post(() -> scroll.scrollTo(0,previousY));
     }
     private void board(String selected, boolean calendar) {
         title(calendar ? "Calendar" : "Today", selected + " · " + repo.timezone() + " · day changes at " + String.format(Locale.US, "%02d:00", repo.rollover()));
@@ -287,9 +299,9 @@ public class MainActivity extends Activity {
                 JSONObject desired = taskValues(f,initial);
                 if (!repo.vault.account().equals(Json.text(desired,"owner_user_id"))) throw new IllegalArgumentException("Save the new owner before changing completion.");
                 if (!complete && Json.text(desired,"original_date").compareTo(repo.today()) > 0) throw new IllegalArgumentException("A future task cannot be completed yet.");
-                Json.put(desired,"completed_at",complete ? null : Instant.now().toString()); save("tasks",row,desired,f);
+                Json.put(desired,"completed_at",complete ? null : Json.now()); save("tasks",row,desired,f);
             });
-            f.action("Archive task", () -> confirm("Archive this task?", () -> save("tasks",row,Json.merge(taskValues(f,initial),Json.of("deleted_at",Instant.now().toString())),f)));
+            f.action("Archive task", () -> confirm("Archive this task?", () -> save("tasks",row,Json.merge(taskValues(f,initial),Json.of("deleted_at",Json.now())),f)));
         }
         if (row != null) {
             TextView heading = new TextView(this); heading.setText("Notebook messages"); f.fields.addView(heading);
@@ -333,7 +345,7 @@ public class MainActivity extends Activity {
             String target = f.value("target_date").trim();
             save("projects",row,Json.merge(b,Json.of("name",f.required("name"),"description",f.value("description"),"owner_user_id",f.value("owner_user_id"),"is_joint",Boolean.parseBoolean(f.value("is_joint")),"target_date",target.isEmpty()?null:BoardRules.validDate(target))),f);
         });
-        if (row != null) f.action("Archive project",() -> confirm("Archive this project?",() -> save("projects",row,Json.merge(b,Json.of("deleted_at",Instant.now().toString())),f)));
+        if (row != null) f.action("Archive project",() -> confirm("Archive this project?",() -> save("projects",row,Json.merge(b,Json.of("deleted_at",Json.now())),f)));
         f.show();
     }
     private void phase(OfflineStore.Record row, String project) {

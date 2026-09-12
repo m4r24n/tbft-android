@@ -40,6 +40,7 @@ final class TbftRepository {
     int rollover() { return workspace().optInt("rollover_hour", 6); }
     String today() { return BoardRules.boardDate(timezone(), rollover(), Instant.now()); }
     String workspaceId() { return store() == null ? "" : store().meta("workspace", ""); }
+    boolean downloaded() { return store() != null && !store().meta("core_sync","").isEmpty(); }
     String name(String id) {
         for (OfflineStore.Record profile : rows("profiles")) if (profile.id.equals(id)) return Json.text(profile.body, "display_name");
         return id.equals(vault.account()) ? "You" : "Partner";

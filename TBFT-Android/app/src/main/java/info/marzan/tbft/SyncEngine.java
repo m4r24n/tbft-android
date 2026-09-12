@@ -12,7 +12,7 @@ final class SyncEngine {
     SyncEngine(OfflineStore store, SupabaseApi api, String account) { this.store = store; this.api = api; this.account = account; }
 
     void sync() throws Exception {
-        List<JSONObject> memberships = Json.rows(api.rest("workspace_members?user_id=eq." + SupabaseApi.value(account) + "&select=workspace_id&order=workspace_id.asc", "GET", null));
+        List<JSONObject> memberships = Json.rows(api.rest("workspace_members?user_id=eq." + SupabaseApi.value(account) + "&select=workspace_id&order=joined_at.asc,workspace_id.asc", "GET", null));
         String workspace = store.meta("workspace", "");
         if (workspace.isEmpty() && !memberships.isEmpty()) workspace = Json.text(memberships.get(0), "workspace_id");
         boolean member = false;
@@ -96,10 +96,21 @@ final class SyncEngine {
         String conflict = SyncRules.conflict(row.base, row.body, remote);
         if (!conflict.isEmpty()) { store.conflict(row, conflict); return; }
         JSONObject patch = SyncRules.delta(row.base, row.body);
+        if (row.table.equals("tasks") && (patch.has("completed_at") || patch.has("deleted_at"))
+                && !account.equals(Json.text(remote,"owner_user_id"))) {
+            store.conflict(row,"Task ownership changed. Only the current owner can change completion or archive status."); return;
+        }
+        if (row.table.equals("tasks") && patch.has("completed_at") && !Json.text(patch,"completed_at").isEmpty()) {
+            List<OfflineStore.Record> spaces = store.records("workspaces");
+            if (!spaces.isEmpty() && Json.text(remote,"original_date").compareTo(BoardRules.boardDate(
+                    spaces.get(0).body.optString("timezone","Europe/Berlin"),spaces.get(0).body.optInt("rollover_hour",6),java.time.Instant.now())) > 0) {
+                store.conflict(row,"This task is now scheduled for a future day. Review it before completion."); return;
+            }
+        }
         if (SyncRules.matches(remote, patch)) { store.acknowledge(row, remote); return; }
         // Atomic compare-and-set against the values just read, not a read-then-blind-write.
         String conditions = conditions(remote, patch);
-        if (row.table.equals("reminders")) Json.put(patch, "updated_at", java.time.Instant.now().toString());
+        if (row.table.equals("reminders")) Json.put(patch, "updated_at", Json.now());
         JSONArray updated = api.rest(row.table + "?id=eq." + row.id + conditions, "PATCH", patch);
         if (updated.optJSONObject(0) != null) store.acknowledge(row, updated.optJSONObject(0));
         // Empty result is a race/RLS rejection, never proof of success. Keep it queued.
