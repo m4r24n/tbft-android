@@ -1,0 +1,114 @@
+package info.marzan.tbft;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.util.ArrayList;
+import java.util.List;
+
+final class SyncEngine {
+    private final OfflineStore store;
+    private final SupabaseApi api;
+    private final String account;
+    SyncEngine(OfflineStore store, SupabaseApi api, String account) { this.store = store; this.api = api; this.account = account; }
+
+    void sync() throws Exception {
+        List<JSONObject> memberships = Json.rows(api.rest("workspace_members?user_id=eq." + SupabaseApi.value(account) + "&select=workspace_id&order=workspace_id.asc", "GET", null));
+        String workspace = store.meta("workspace", "");
+        if (workspace.isEmpty() && !memberships.isEmpty()) workspace = Json.text(memberships.get(0), "workspace_id");
+        boolean member = false;
+        for (JSONObject row : memberships) if (workspace.equals(Json.text(row, "workspace_id"))) member = true;
+        if (!member) throw new SupabaseApi.ApiException(403, "Workspace membership unavailable. Local data is preserved; create/join a workspace on the web first.");
+        store.setMeta("workspace", workspace);
+
+        // Parent records before children. Conflict rows are retained for explicit review.
+        for (OfflineStore.Record pending : store.pending()) {
+            if (Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException();
+            if (!pending.error.isEmpty()) continue;
+            try { push(pending); }
+            catch (SupabaseApi.ApiException e) {
+                if (e.status == 400 || e.status == 403 || e.status == 409 || e.status == 422) store.conflict(pending, e.getMessage());
+                else throw e;
+            }
+        }
+
+        String filter = "&workspace_id=eq." + SupabaseApi.value(workspace);
+        List<JSONObject> spaces = api.all("workspaces", "&id=eq." + SupabaseApi.value(workspace));
+        if (spaces.size() != 1) throw new java.io.IOException("Workspace snapshot unavailable");
+        store.ingest("workspaces", spaces);
+        List<JSONObject> members = Json.rows(api.rest("workspace_members?workspace_id=eq." + SupabaseApi.value(workspace) + "&select=user_id,position&order=position.asc", "GET", null));
+        List<JSONObject> profiles = new ArrayList<>();
+        for (JSONObject memberRow : members) {
+            JSONObject profile = api.one("profiles", Json.text(memberRow, "user_id"));
+            if (profile == null) throw new java.io.IOException("Incomplete member profile snapshot");
+            profiles.add(profile);
+        }
+        store.ingest("profiles", profiles);
+        List<JSONObject> projects = api.all("projects", filter);
+        List<JSONObject> tasks = api.all("tasks", filter);
+        store.ingest("projects", projects);
+        store.ingest("tasks", tasks);
+        store.setMeta("core_sync", java.time.Instant.now().toString());
+
+        // One optional collection failing must not suppress tasks or other collections.
+        List<String> unavailable = new ArrayList<>();
+        try { store.ingest("project_nodes", children("project_nodes", "project_id", projects)); } catch (Exception e) { unavailable.add("phases"); }
+        try { store.ingest("task_messages", children("task_messages", "task_id", tasks)); } catch (Exception e) { unavailable.add("task notes"); }
+        for (String table : new String[]{"reminders", "project_files", "activity_log"}) {
+            try { store.ingest(table, api.all(table, filter)); } catch (Exception e) { unavailable.add(table.replace('_', ' ')); }
+        }
+        if (!unavailable.isEmpty()) throw new java.io.IOException("Tasks synced. Retrying " + String.join(", ", unavailable) + "; existing local copies kept.");
+        store.setMeta("last_sync", java.time.Instant.now().toString());
+    }
+    private List<JSONObject> children(String table, String key, List<JSONObject> parents) throws Exception {
+        List<JSONObject> out = new ArrayList<>();
+        for (int offset = 0; offset < parents.size(); offset += 50) {
+            List<String> ids = new ArrayList<>();
+            for (int i = offset; i < Math.min(offset + 50, parents.size()); i++) ids.add(Json.text(parents.get(i), "id"));
+            out.addAll(api.all(table, "&" + key + "=in.(" + String.join(",", ids) + ")"));
+        }
+        return out;
+    }
+    private void push(OfflineStore.Record row) throws Exception {
+        if (!SyncRules.WRITABLE.contains(row.table)) { store.conflict(row, "Read-only record"); return; }
+        JSONObject remote = api.one(row.table, row.id);
+        if (row.removed) {
+            if (!row.table.equals("reminders")) throw new IllegalStateException("Only reminders use hard deletion");
+            if (remote == null) { store.acknowledge(row, null); return; }
+            JSONObject expected = row.base == null ? row.body : row.base;
+            if (!SyncRules.matches(remote, SyncRules.delta(new JSONObject(), expected))) {
+                store.conflict(row, "Reminder changed remotely before deletion. Both copies are preserved."); return;
+            }
+            String conditions = conditions(remote, SyncRules.delta(new JSONObject(), expected));
+            JSONArray result = api.rest(row.table + "?id=eq." + row.id + conditions, "DELETE", null);
+            if (result.length() > 0) store.acknowledge(row, null);
+            return;
+        }
+        if (row.base == null) {
+            if (remote == null) {
+                JSONArray inserted = api.rest(row.table, "POST", row.body);
+                if (inserted.optJSONObject(0) != null) store.acknowledge(row, inserted.optJSONObject(0));
+            } else if (SyncRules.matches(remote, SyncRules.delta(new JSONObject(), row.body))) {
+                // The server may have committed a previous POST whose response was lost.
+                store.acknowledge(row, remote);
+            } else store.conflict(row, "The same record ID already exists with different content.");
+            return;
+        }
+        String conflict = SyncRules.conflict(row.base, row.body, remote);
+        if (!conflict.isEmpty()) { store.conflict(row, conflict); return; }
+        JSONObject patch = SyncRules.delta(row.base, row.body);
+        if (SyncRules.matches(remote, patch)) { store.acknowledge(row, remote); return; }
+        // Atomic compare-and-set against the values just read, not a read-then-blind-write.
+        String conditions = conditions(remote, patch);
+        if (row.table.equals("reminders")) Json.put(patch, "updated_at", java.time.Instant.now().toString());
+        JSONArray updated = api.rest(row.table + "?id=eq." + row.id + conditions, "PATCH", patch);
+        if (updated.optJSONObject(0) != null) store.acknowledge(row, updated.optJSONObject(0));
+        // Empty result is a race/RLS rejection, never proof of success. Keep it queued.
+    }
+    private String conditions(JSONObject remote, JSONObject patch) {
+        StringBuilder query = new StringBuilder();
+        if (remote.has("updated_at")) query.append(SupabaseApi.condition("updated_at", remote.opt("updated_at")));
+        if (remote.has("deleted_at")) query.append(SupabaseApi.condition("deleted_at", remote.opt("deleted_at")));
+        if (!remote.has("updated_at")) for (String key : Json.keys(patch)) query.append(SupabaseApi.condition(key, remote.opt(key)));
+        return query.toString();
+    }
+}
