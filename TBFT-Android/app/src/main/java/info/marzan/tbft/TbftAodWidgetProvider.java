@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -31,9 +30,8 @@ public class TbftAodWidgetProvider extends AppWidgetProvider {
     }
 
     private static void updateWidget(Context context, AppWidgetManager manager, int widgetId) {
-        SharedPreferences prefs = context.getSharedPreferences(TbftWidgetProvider.PREFS, Context.MODE_PRIVATE);
         List<String> tasks = TbftWidgetProvider.getCachedTasks(context);
-        boolean connected = !prefs.getString(TbftWidgetProvider.KEY_REFRESH_TOKEN, "").isEmpty();
+        boolean connected = TbftRepository.get(context).downloaded();
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.tbft_aod_widget);
         int count = tasks.size();

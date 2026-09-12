@@ -2,6 +2,10 @@ name: Build TBFT Android APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'TBFT-Android/**'
+      - '.github/workflows/build-apk.yml'
   push:
     branches: [ main ]
     paths:
@@ -30,14 +34,22 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Test, lint and build offline preview
         working-directory: TBFT-Android
-        run: gradle --no-daemon assembleDebug
+        run: gradle --no-daemon testDebugUnitTest lintDebug assembleDebug
+
+      - name: Upload verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TBFT-Verification
+          path: TBFT-Android/app/build/reports/
+          retention-days: 30
 
       - name: Upload TBFT APK
         uses: actions/upload-artifact@v4
         with:
-          name: TBFT-Android-APK
+          name: TBFT-Offline-Preview-APK
           path: TBFT-Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
