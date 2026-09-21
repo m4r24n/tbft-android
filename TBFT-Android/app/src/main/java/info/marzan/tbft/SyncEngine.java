@@ -23,10 +23,15 @@ final class SyncEngine {
         // Parent records before children. Conflict rows are retained for explicit review.
         for (OfflineStore.Record pending : store.pending()) {
             if (Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException();
-            if (!pending.error.isEmpty()) continue;
-            try { push(pending); }
+            OfflineStore.Record current=store.get(pending.table,pending.id);
+            if(current==null || !current.dirty || !current.error.isEmpty()) continue;
+            if(current.table.equals("tasks")) {
+                OfflineStore.Record wardrobe=store.wardrobeForTask(current.id);
+                if(wardrobe!=null && wardrobe.dirty) continue;
+            }
+            try { if(current.table.equals("wardrobes")) pushWardrobe(current); else push(current); }
             catch (SupabaseApi.ApiException e) {
-                if (e.status == 400 || e.status == 403 || e.status == 409 || e.status == 422) store.conflict(pending, e.getMessage());
+                if (e.status == 400 || e.status == 403 || e.status == 409 || e.status == 422) store.conflict(current, current.table.equals("wardrobes") ? "Wardrobe needs review before syncing. Your phone's copy is preserved." : e.getMessage());
                 else throw e;
             }
         }
@@ -53,11 +58,35 @@ final class SyncEngine {
         List<String> unavailable = new ArrayList<>();
         try { store.ingest("project_nodes", children("project_nodes", "project_id", projects)); } catch (Exception e) { unavailable.add("phases"); }
         try { store.ingest("task_messages", children("task_messages", "task_id", tasks)); } catch (Exception e) { unavailable.add("task notes"); }
-        for (String table : new String[]{"reminders", "project_files", "activity_log"}) {
+        for (String table : new String[]{"reminders", "project_files", "activity_log", "wardrobes"}) {
             try { store.ingest(table, api.all(table, filter)); } catch (Exception e) { unavailable.add(table.replace('_', ' ')); }
         }
         if (!unavailable.isEmpty()) throw new java.io.IOException("Tasks synced. Retrying " + String.join(", ", unavailable) + "; existing local copies kept.");
         store.setMeta("last_sync", java.time.Instant.now().toString());
+    }
+    private void pushWardrobe(OfflineStore.Record queued) throws Exception {
+        OfflineStore.Record sent;
+        List<OfflineStore.Record> taskSnapshots=new ArrayList<>();
+        synchronized(store) {
+            sent=store.get("wardrobes",queued.id);
+            if(sent==null || !sent.dirty) return;
+            for(JSONObject batch:WardrobeRules.list(WardrobeRules.state(sent.body),"batches")) {
+                OfflineStore.Record task=store.get("tasks",Json.text(batch,"task_id"));
+                if(task!=null && task.dirty) taskSnapshots.add(task);
+            }
+        }
+        long revision=sent.base==null?0:sent.base.optLong("revision",0);
+        JSONArray result=api.rest("rpc/sync_wardrobe","POST",Json.of("document",sent.body,"expected_revision",revision));
+        JSONObject acknowledged=result.optJSONObject(0);
+        if(acknowledged==null) throw new java.io.IOException("Missing wardrobe acknowledgement");
+        store.acknowledge(sent,acknowledged);
+        for(OfflineStore.Record task:taskSnapshots) {
+            JSONObject remote=api.one("tasks",task.id);
+            if(remote!=null) {
+                JSONObject batch=WardrobeRules.batch(sent.body,task.id);
+                store.acknowledgeManagedTask(task,WardrobeRules.task(sent.body,batch),remote);
+            }
+        }
     }
     private List<JSONObject> children(String table, String key, List<JSONObject> parents) throws Exception {
         List<JSONObject> out = new ArrayList<>();

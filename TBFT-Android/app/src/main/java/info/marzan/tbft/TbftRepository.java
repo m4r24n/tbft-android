@@ -56,6 +56,14 @@ final class TbftRepository {
         return (conflicts > 0 ? conflicts + " need review · " : "") + pending.size() + " pending · "
                 + (!error.isEmpty() ? error : last.isEmpty() ? "Initial download needed" : "Last synced " + last.replace('T', ' ').substring(0, 16) + " UTC");
     }
+    String summary() {
+        if(syncing.get()) return "↻  Syncing · you can keep working";
+        if(store()==null)return "Your organiser, saved on your phone";
+        int pending=store().pending().size(),review=0;for(OfflineStore.Record r:store().pending())if(!r.error.isEmpty())review++;
+        if(review>0)return "●  "+review+" changes need review";
+        if(pending>0)return "●  Saved on device · "+pending+" waiting to sync";
+        return store().meta("sync_error","").isEmpty()?"✓  Everything saved · tap for sync details":"●  Offline · your organiser is ready";
+    }
     void changed() {
         context.sendBroadcast(new Intent(CHANGED).setPackage(context.getPackageName()));
         TbftWidgetProvider.updateAll(context);
@@ -93,13 +101,16 @@ final class TbftRepository {
                     if (opened != null) {
                         OfflineStore.Record latest = store().get(table, Json.text(body, "id"));
                         JSONObject changes = SyncRules.delta(opened,body);
+                        if(table.equals("tasks") && !Json.text(opened,"wardrobe_id").isEmpty()
+                            && (changes.has("owner_user_id")||changes.has("original_date")))
+                            throw new IllegalArgumentException("Laundry tasks keep their wardrobe owner and original date.");
                         if (table.equals("tasks") && !vault.account().equals(Json.text(opened,"owner_user_id"))
                                 && (changes.has("completed_at") || changes.has("deleted_at"))) throw new IllegalStateException("Only the task owner can change completion or archive status.");
                         String overlap = SyncRules.conflict(opened, body, latest == null ? null : latest.body);
                         if (!overlap.isEmpty()) throw new IllegalStateException(overlap + " Reopen this item to review the latest copy; this form is still here.");
                         desired = Json.merge(latest.body, SyncRules.delta(opened, body));
                     }
-                    store().save(table, desired);
+                    if(table.equals("tasks")) store().saveTaskAndWardrobe(desired); else store().save(table, desired);
                 }
                 changed(); SyncJobs.request(context);
             } catch (Exception e) { error = "Could not save locally: " + e.getMessage(); }
@@ -110,6 +121,16 @@ final class TbftRepository {
         io.execute(() -> {
             try { store().removeReminder(id); changed(); SyncJobs.request(context); done.done(""); }
             catch (Exception e) { done.done("Could not save deletion locally"); }
+        });
+    }
+    JSONObject wardrobe() { return store().wardrobe(workspaceId(),vault.account()); }
+    void wardrobe(java.util.function.Consumer<JSONObject> action,Completion done) {
+        io.execute(() -> {
+            try {
+                if(store()==null || workspaceId().isEmpty()) throw new IllegalStateException("Download the workspace first.");
+                store().changeWardrobe(workspaceId(),vault.account(),today(),action);
+                changed(); SyncJobs.request(context); done.done("");
+            } catch(Exception e) { done.done(e.getMessage()==null?"Could not save wardrobe":e.getMessage()); }
         });
     }
     void requestSync() { syncAsync(success -> {}); }

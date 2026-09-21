@@ -16,7 +16,7 @@ import java.util.*;
 
 /** Every organiser screen is rendered from SQLite. WebView is confined to BrowserActivity. */
 public class MainActivity extends Activity {
-    private static final int INK = Color.rgb(232,238,242), MUTED = Color.rgb(154,172,186), BG = Color.rgb(15,22,29), CARD = Color.rgb(26,36,46), ACCENT = Color.rgb(166,221,197);
+    private static final int INK=Ui.INK, MUTED=Ui.MUTED, BG=Ui.BG, CARD=Ui.CARD, ACCENT=Ui.ACCENT;
     private TbftRepository repo;
     private LinearLayout page, body;
     private TextView sync;
@@ -24,11 +24,13 @@ public class MainActivity extends Activity {
     private String renderedPage = "";
     private String tab = "Today", date = "", projectId = "";
     private boolean registered;
+    private String moreSection="", projectSection="Tasks", month="";
+    private WardrobeScreen wardrobeScreen;
     private final Handler clock = new Handler(Looper.getMainLooper());
     private final Runnable tick = new Runnable() { public void run() { render(); clock.postDelayed(this, 60000); } };
     private final BroadcastReceiver receiver = new BroadcastReceiver() { @Override public void onReceive(Context c, Intent i) { render(); } };
     @Override public void onCreate(Bundle state) {
-        super.onCreate(state); repo = TbftRepository.get(this);
+        super.onCreate(state); repo = TbftRepository.get(this); wardrobeScreen=new WardrobeScreen(this,repo,this::render);
         if (state != null) { tab = state.getString("tab", "Today"); date = state.getString("date", ""); projectId = state.getString("project", ""); }
         SyncJobs.schedule(this); render();
     }
@@ -55,22 +57,14 @@ public class MainActivity extends Activity {
         TextView view = new TextView(this); view.setText(value); view.setTextSize(size); view.setTextColor(color);
         view.setPadding(0, dp(5), 0, dp(5)); parent.addView(view); return view;
     }
-    private Button button(LinearLayout parent, String title, Runnable action) {
-        Button b = new Button(this); b.setText(title); b.setAllCaps(false); b.setTextSize(14);
-        b.setOnClickListener(v -> action.run()); parent.addView(b); return b;
-    }
-    private LinearLayout card(LinearLayout parent) {
-        LinearLayout c = column(); c.setPadding(dp(16), dp(10), dp(16), dp(12));
-        GradientDrawable bg = new GradientDrawable(); bg.setColor(CARD); bg.setCornerRadius(dp(14)); c.setBackground(bg);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.setMargins(0, dp(5), 0, dp(7));
-        parent.addView(c, lp); return c;
-    }
+    private Button button(LinearLayout parent, String title, Runnable action) { return Ui.button(parent,title,action); }
+    private LinearLayout card(LinearLayout parent) { return Ui.card(parent); }
     private void title(String title, String subtitle) {
         text(body, title, 28, INK).setTypeface(null, Typeface.BOLD); if (!subtitle.isEmpty()) text(body, subtitle, 14, MUTED);
     }
     private void render() {
         if (isFinishing() || isDestroyed()) return;
-        String location = tab + ":" + projectId + ":" + (tab.equals("Today") ? repo.today() : date);
+        String location = tab + ":" + projectId + ":" + moreSection + ":" + projectSection + ":" + (tab.equals("Today") ? repo.today() : date);
         int previousY = contentScroll != null && location.equals(renderedPage) ? contentScroll.getScrollY() : 0;
         renderedPage = location;
         page = column(); page.setBackgroundColor(BG);
@@ -79,11 +73,11 @@ public class MainActivity extends Activity {
                     dp(14) + insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()); return insets;
         });
         LinearLayout header = new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand = new TextView(this); brand.setText("TBFT"); brand.setTextColor(ACCENT); brand.setTextSize(22); brand.setTypeface(null, Typeface.BOLD);
+        TextView brand = new TextView(this); brand.setText("TBFT  /"); brand.setLetterSpacing(.1f); brand.setTextColor(INK); brand.setTextSize(22); brand.setTypeface(null, Typeface.BOLD);
         header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
         button(header, "Browser", () -> startActivity(new Intent(this, BrowserActivity.class)));
-        button(header, "Sync", () -> { repo.requestSync(); toast("Sync requested. You can keep working."); }); page.addView(header);
-        sync = text(page, repo.status(), 12, MUTED); sync.setOnClickListener(v -> queue());
+        page.addView(header);
+        sync = text(page, repo.summary(), 12, MUTED); sync.setPadding(0,dp(8),0,dp(8)); sync.setOnClickListener(v -> queue());
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true);
         contentScroll = scroll;
         body = column(); body.setPadding(0, dp(10), 0, dp(20)); scroll.addView(body);
@@ -91,27 +85,35 @@ public class MainActivity extends Activity {
         if (repo.workspaceId().isEmpty()) {
             title("Your organiser, on your phone", "Connect once to download your TBFT workspace. Saved tasks and notes then work without internet.");
             button(body, "Connect TBFT account", this::login);
-            text(body, "Offline preview · installs alongside the existing app", 13, MUTED);
+            text(body, "Saved locally · ready when you are", 13, MUTED);
         } else {
             switch (tab) {
                 case "Projects": if (projectId.isEmpty()) projects(); else project(); break;
-                case "Calendar": board(date.isEmpty() ? repo.today() : date, true); break;
+                case "Calendar": calendar(); break;
+                case "Wardrobe": wardrobeScreen.render(body); break;
                 case "More": more(); break;
                 default: board(repo.today(), false);
             }
         }
         LinearLayout nav = new LinearLayout(this);
-        for (String label : new String[]{"Today", "Projects", "Calendar", "More"}) {
-            Button b = button(nav, label, () -> { tab = label; projectId = ""; render(); });
-            b.setTextColor(tab.equals(label) ? Color.rgb(22,92,66) : Color.DKGRAY);
-            b.setLayoutParams(new LinearLayout.LayoutParams(0, dp(54), 1)); b.setTextSize(12); b.setPadding(0,0,0,0);
+        for (String label : new String[]{"Today", "Projects", "Wardrobe", "Calendar", "More"}) {
+            Button b = button(nav, label, () -> { tab = label; projectId = ""; moreSection=""; render(); });
+            Ui.selected(b,tab.equals(label));
+            b.setLayoutParams(new LinearLayout.LayoutParams(0, dp(54), 1)); b.setTextSize(11); b.setPadding(0,0,0,0);
         }
         page.addView(nav); setContentView(page); page.requestApplyInsets();
         if (previousY > 0) scroll.post(() -> scroll.scrollTo(0,previousY));
     }
     private void board(String selected, boolean calendar) {
-        title(calendar ? "Calendar" : "Today", selected + " · " + repo.timezone() + " · day changes at " + String.format(Locale.US, "%02d:00", repo.rollover()));
-        if (calendar) button(body, "Choose date", () -> chooseDate(selected, value -> { date = value; render(); }));
+        if (!calendar) {
+            text(body,"THE DAILY BOARD",11,ACCENT).setLetterSpacing(.15f);
+            title("Today",LocalDate.parse(selected).format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM")));
+            int remaining=0,done=0;
+            for(OfflineStore.Record t:repo.rows("tasks")) if(repo.vault.account().equals(Json.text(t.body,"owner_user_id")) && BoardRules.appears(t.body,selected,repo.timezone(),repo.rollover(),Instant.now())) { if(Json.text(t.body,"completed_at").isEmpty())remaining++;else done++; }
+            LinearLayout summary=card(body); summary.setBackground(Ui.shape(this,Ui.SAGE,18));
+            text(summary,remaining+" to do   ·   "+done+" completed",18,INK).setTypeface(null,Typeface.BOLD);
+            text(summary,"One thing at a time.",13,MUTED);
+        } else text(body,LocalDate.parse(selected).format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM")),20,INK).setTypeface(null,Typeface.BOLD);
         button(body, "+ Add task", () -> task(null, "", "", repo.vault.account(), selected));
         List<String> owners = new ArrayList<>(); owners.add(repo.vault.account());
         for (OfflineStore.Record r : repo.rows("profiles")) if (!owners.contains(r.id)) owners.add(r.id);
@@ -135,7 +137,9 @@ public class MainActivity extends Activity {
     }
     private void taskCard(LinearLayout parent, OfflineStore.Record r, String selected) {
         JSONObject t = r.body; LinearLayout c = card(parent);
-        text(c, BoardRules.state(t, selected, repo.timezone(), repo.rollover(), Instant.now()) + pending(r), 11, ACCENT);
+        String state=BoardRules.state(t, selected, repo.timezone(), repo.rollover(), Instant.now());
+        if(Json.text(t,"completed_at").isEmpty()) c.setBackground(Ui.shape(this,Ui.SAGE,18));
+        text(c, state.toUpperCase(Locale.ROOT) + pending(r), 11, ACCENT);
         text(c, Json.text(t,"title"), 18, INK);
         String time = Json.text(t,"deadline");
         text(c, repo.name(Json.text(t,"owner_user_id")) + (time.isEmpty() ? "" : " · " + time.substring(0, Math.min(5,time.length())))
@@ -155,47 +159,98 @@ public class MainActivity extends Activity {
             }
             text(c, done + " / " + all + " tasks complete" + pending(r), 13, ACCENT);
             ProgressBar progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-            progress.setProgress(all == 0 ? 0 : done * 100 / all); c.addView(progress);
+            progress.setProgressTintList(android.content.res.ColorStateList.valueOf(ACCENT)); progress.setProgress(all == 0 ? 0 : done * 100 / all); c.addView(progress);
             if (!next.isEmpty()) text(c, "Next · " + next, 15, INK);
             String target = Json.text(r.body,"target_date"); if (!target.isEmpty()) text(c, "Target " + target, 13, MUTED);
-            c.setOnClickListener(v -> { projectId = r.id; render(); }); count++;
+            c.setOnClickListener(v -> { projectId = r.id; projectSection="Tasks"; render(); }); count++;
         }
         if (count == 0) text(body, "Create a project to group tasks and phases.", 15, MUTED);
     }
-    private void project() {
-        OfflineStore.Record r = repo.store().get("projects", projectId);
-        if (r == null) { projectId = ""; projects(); return; }
-        button(body, "‹ All projects", () -> { projectId = ""; render(); });
-        title(Json.text(r.body,"name"), Json.text(r.body,"description"));
-        button(body, "Edit project", () -> editProject(r));
-        button(body, "+ Add task", () -> task(null, r.id, "", repo.vault.account(), repo.today()));
-        text(body, "Phases", 20, INK); button(body, "+ Add phase", () -> phase(null, r.id));
-        for (OfflineStore.Record p : repo.rows("project_nodes")) if (r.id.equals(Json.text(p.body,"project_id"))) {
-            LinearLayout c = card(body); text(c, Json.text(p.body,"title"), 18, INK);
-            text(c, Json.text(p.body,"description"), 14, MUTED);
-            button(c, "Edit phase", () -> phase(p, r.id));
-            button(c, "+ Task in this phase", () -> task(null, r.id, p.id, repo.vault.account(), repo.today()));
+    private void calendar() {
+        String selected=date.isEmpty()?repo.today():date;
+        YearMonth shown; try { shown=YearMonth.parse(month.isEmpty()?selected.substring(0,7):month); } catch(Exception e){shown=YearMonth.now();}
+        final YearMonth current=shown;
+        title("Calendar","A little perspective on your days.");
+        LinearLayout controls=new LinearLayout(this);
+        button(controls,"‹",()->{month=current.minusMonths(1).toString();render();}).setContentDescription("Previous month");
+        TextView label=text(controls,current.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")),18,INK); label.setGravity(Gravity.CENTER);
+        label.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+        button(controls,"›",()->{month=current.plusMonths(1).toString();render();}).setContentDescription("Next month"); body.addView(controls);
+        LinearLayout grid=card(body), days=new LinearLayout(this);grid.addView(days);
+        for(String day:new String[]{"M","T","W","T","F","S","S"}){TextView t=text(days,day,12,MUTED);t.setGravity(Gravity.CENTER);t.setLayoutParams(new LinearLayout.LayoutParams(0,dp(32),1));}
+        int first=current.atDay(1).getDayOfWeek().getValue()-1,total=current.lengthOfMonth();LinearLayout week=null;
+        for(int cell=0;cell<((first+total+6)/7)*7;cell++){
+            if(cell%7==0){week=new LinearLayout(this);grid.addView(week);}
+            int day=cell-first+1;
+            if(day<1||day>total){week.addView(new android.view.View(this),new LinearLayout.LayoutParams(0,dp(48),1));continue;}
+            String value=current.atDay(day).toString();int count=0;
+            for(OfflineStore.Record t:repo.rows("tasks"))if(BoardRules.appears(t.body,value,repo.timezone(),repo.rollover(),Instant.now()))count++;
+            Button b=button(week,String.valueOf(day)+(count>0?" ·":""),()->{date=value;render();});
+            b.setPadding(0,0,0,0);b.setTextSize(13);b.setLayoutParams(new LinearLayout.LayoutParams(0,dp(48),1));Ui.selected(b,value.equals(selected));
+            b.setContentDescription(value+", "+count+" tasks");if(value.equals(repo.today())&&!value.equals(selected))b.setTextColor(ACCENT);
         }
-        text(body, "Tasks", 20, INK);
-        for (OfflineStore.Record t : repo.rows("tasks")) if (r.id.equals(Json.text(t.body,"project_id")) && Json.text(t.body,"deleted_at").isEmpty()) taskCard(body,t,repo.today());
-        text(body, "Files", 20, INK); files(r.id);
-        text(body, "Activity", 20, INK); activity(r.id);
+        button(body,"Back to today",()->{date=repo.today();month="";render();});board(selected,true);
+    }
+    private void project() {
+        OfflineStore.Record r=repo.store().get("projects",projectId);
+        if(r==null){projectId="";projects();return;}
+        button(body,"‹ All projects",()->{projectId="";render();});
+        title(Json.text(r.body,"name"),Json.text(r.body,"description"));
+        LinearLayout tabs=Ui.chips(body);
+        for(String section:new String[]{"Tasks","Phases","Files","Activity","Details"})
+            Ui.selected(button(tabs,section,()->{projectSection=section;render();}),projectSection.equals(section));
+        switch(projectSection) {
+            case "Tasks":
+                button(body,"+ Add task",()->task(null,r.id,"",repo.vault.account(),repo.today()));
+                int count=0;
+                for(OfflineStore.Record t:repo.rows("tasks"))if(r.id.equals(Json.text(t.body,"project_id"))&&Json.text(t.body,"deleted_at").isEmpty()){taskCard(body,t,repo.today());count++;}
+                if(count==0)text(body,"Give this project its first next action.",15,MUTED);break;
+            case "Phases":
+                button(body,"+ Add phase",()->phase(null,r.id));
+                for(OfflineStore.Record p:repo.rows("project_nodes"))if(r.id.equals(Json.text(p.body,"project_id"))){
+                    LinearLayout c=card(body);text(c,Json.text(p.body,"title"),18,INK);text(c,Json.text(p.body,"description"),14,MUTED);
+                    button(c,"Edit phase",()->phase(p,r.id));button(c,"+ Task in this phase",()->task(null,r.id,p.id,repo.vault.account(),repo.today()));
+                }break;
+            case "Files":files(r.id);break;
+            case "Activity":activity(r.id);break;
+            default:
+                LinearLayout c=card(body);text(c,"Owner · "+repo.name(Json.text(r.body,"owner_user_id")),15,INK);
+                text(c,"Target · "+(Json.text(r.body,"target_date").isEmpty()?"Not set":Json.text(r.body,"target_date")),14,MUTED);
+                button(c,"Edit project",()->editProject(r));
+        }
     }
     private void more() {
-        title("Your workspace", "Everything downloaded stays available on this phone.");
-        button(body, "Sync & review pending changes", this::queue);
-        button(body, "Reconnect account", this::login);
-        button(body, "Export local backup", this::backup);
-        button(body, "Workspace settings", this::settings);
-        text(body, "Archive", 21, INK);
-        for (String table : new String[]{"tasks","projects"}) for (OfflineStore.Record r : repo.rows(table)) if (!Json.text(r.body,"deleted_at").isEmpty()) {
-            LinearLayout c = card(body); text(c, Json.text(r.body, table.equals("tasks") ? "title" : "name") + pending(r), 16, INK);
-            button(c, "Restore", () -> save(table, r, Json.merge(r.body, Json.of("deleted_at",null)), null));
+        title(moreSection.isEmpty()?"Your space":moreSection,moreSection.isEmpty()?"A place for everything. Open only what you need.":"");
+        if(moreSection.isEmpty()){
+            menu("Workspace","People, timezone and daily rhythm",this::settings);
+            menu("Archive","Finished chapters, ready to restore",()->{moreSection="Archive";render();});
+            menu("Files","Project documents and links",()->{moreSection="Files";render();});
+            menu("Activity","Recent changes in your workspace",()->{moreSection="Activity";render();});
+            menu("Sync & backup","Connection, pending changes and local backup",()->{moreSection="Sync & backup";render();});
+            menu("About","App version and available features",()->{moreSection="About";render();});return;
         }
-        text(body, "Files", 21, INK); files("");
-        text(body, "Recent activity", 21, INK); activity("");
-        text(body, "Preview coverage", 21, INK);
-        text(body, "Tasks, completion notes, reminders, projects, phases and calendar work locally. Files currently show downloaded metadata and online links. Recurring task generation and Google Drive PDF export are not enabled in this preview. Keep the existing app until device and sync testing is complete.", 14, MUTED);
+        button(body,"‹ Your space",()->{moreSection="";render();});
+        switch(moreSection){
+            case "Archive":
+                int count=0;
+                for(String table:new String[]{"tasks","projects"})for(OfflineStore.Record r:repo.rows(table))if(!Json.text(r.body,"deleted_at").isEmpty()){
+                    LinearLayout c=card(body);text(c,Json.text(r.body,table.equals("tasks")?"title":"name")+pending(r),16,INK);
+                    button(c,"Restore",()->save(table,r,Json.merge(r.body,Json.of("deleted_at",null)),null));count++;
+                }if(count==0)text(body,"Your archive is empty.",15,MUTED);break;
+            case "Files":files("");break;
+            case "Activity":activity("");break;
+            case "Sync & backup":
+                LinearLayout c=card(body);text(c,repo.status(),14,MUTED);button(c,"Sync & review pending changes",this::queue);
+                button(body,"Reconnect account",this::login);button(body,"Export local backup",this::backup);button(body,"Import backup from previous app",this::importBackup);break;
+            default:
+                text(body,"TBFT Native · "+BuildConfig.VERSION_NAME,18,INK);
+                text(body,"Tasks, notes, reminders, projects, calendar and Wardrobe save on this phone. Widgets use the same local data.",14,MUTED);
+                text(body,"Files show metadata and online links. Recurring task generation and Google Drive PDF export still use the website.",14,MUTED);
+        }
+    }
+    private void menu(String title,String subtitle,Runnable action){
+        LinearLayout c=card(body);text(c,title+"  ›",18,INK).setTypeface(null,Typeface.BOLD);text(c,subtitle,13,MUTED);
+        c.setOnClickListener(v->action.run());c.setFocusable(true);c.setContentDescription(title+", "+subtitle);
     }
     private void files(String project) {
         int count = 0;
@@ -232,7 +287,7 @@ public class MainActivity extends Activity {
         final Map<String,List<String>> values = new HashMap<>();
         AlertDialog dialog;
         Form(String title) {
-            fields.setPadding(dp(20),dp(8),dp(20),dp(20));
+            fields.setPadding(dp(20),dp(8),dp(20),dp(20)); fields.setBackgroundColor(CARD);
             ScrollView scroll = new ScrollView(MainActivity.this); scroll.addView(fields);
             dialog = new AlertDialog.Builder(MainActivity.this).setTitle(title).setView(scroll).setNegativeButton("Close",null).create();
         }
@@ -403,6 +458,9 @@ public class MainActivity extends Activity {
         if (repo.store() == null) return;
         startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json").putExtra(Intent.EXTRA_TITLE,"tbft-backup-" + repo.today() + ".json"),41);
     }
+    private void importBackup() {
+        startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json"),42);
+    }
     private void review(OfflineStore.Record row) {
         toast("Loading the server copy…");
         repo.review(row,(remote,error) -> runOnUiThread(() -> {
@@ -418,6 +476,12 @@ public class MainActivity extends Activity {
         }));
     }
     private String readable(JSONObject row) {
+        if(row.has("state")) {
+            StringBuilder wardrobe=new StringBuilder();
+            wardrobe.append(WardrobeRules.total(row,"available")).append(" available · ").append(WardrobeRules.total(row,"in_use")).append(" in use · ").append(WardrobeRules.total(row,"laundry")).append(" in laundry\n");
+            for(JSONObject g:WardrobeRules.list(WardrobeRules.state(row),"items"))wardrobe.append(Json.text(g,"name")).append(": ").append(WardrobeRules.count(g,"available")).append(" available, ").append(WardrobeRules.count(g,"in_use")).append(" in use, ").append(WardrobeRules.count(g,"laundry")).append(" laundry\n");
+            return wardrobe.toString();
+        }
         StringBuilder out = new StringBuilder();
         for (String key : Json.keys(row)) if (!key.equals("id") && !key.endsWith("_id") && !key.equals("created_at") && !key.equals("updated_at"))
             out.append(key.replace('_',' ')).append(": ").append(Json.text(row,key)).append("\n");
@@ -428,6 +492,18 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==42 && result==RESULT_OK && data!=null && data.getData()!=null){
+            Uri uri=data.getData();
+            repo.io.execute(()->{
+                try(java.io.InputStream in=getContentResolver().openInputStream(uri)){
+                    if(in==null)throw new java.io.IOException("Cannot read this file");
+                    java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();byte[] buffer=new byte[8192];int n;
+                    while((n=in.read(buffer))!=-1){if(out.size()+n>20000000)throw new java.io.IOException("Backup is too large");out.write(buffer,0,n);}
+                    JSONObject backup=Json.object(out.toString("UTF-8"));int count=repo.store().importBackup(backup,repo.workspaceId(),repo.vault.account());
+                    repo.changed();runOnUiThread(()->{toast(count+" pending changes restored. Review Sync before uploading.");render();});
+                }catch(Exception e){runOnUiThread(()->toast("Backup was not imported: "+e.getMessage()));}
+            });
+        }
         if (request == 41 && result == RESULT_OK && data != null && data.getData() != null) {
             Uri uri = data.getData(); repo.io.execute(() -> {
                 try (java.io.OutputStream out = getContentResolver().openOutputStream(uri,"wt")) {

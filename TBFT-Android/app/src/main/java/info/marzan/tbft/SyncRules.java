@@ -8,12 +8,24 @@ import java.util.Set;
 /** Pure, deterministic merge rules. Never silently choose a winner for overlapping edits. */
 final class SyncRules {
     static final Set<String> WRITABLE = new HashSet<>(Arrays.asList(
-            "projects", "project_nodes", "tasks", "task_messages", "reminders", "workspaces"));
+            "projects", "project_nodes", "tasks", "task_messages", "reminders", "workspaces", "wardrobes"));
     private static final Set<String> GENERATED = new HashSet<>(Arrays.asList("created_at", "updated_at", "edited_at"));
 
     static boolean equal(Object a, Object b) {
         if (a == null || a == JSONObject.NULL) return b == null || b == JSONObject.NULL;
         if (b == null || b == JSONObject.NULL) return false;
+        if (a instanceof JSONObject && b instanceof JSONObject) {
+            JSONObject x=(JSONObject)a,y=(JSONObject)b;
+            if(x.length()!=y.length()) return false;
+            for(String key:Json.keys(x)) if(!y.has(key)||!equal(x.opt(key),y.opt(key))) return false;
+            return true;
+        }
+        if (a instanceof org.json.JSONArray && b instanceof org.json.JSONArray) {
+            org.json.JSONArray x=(org.json.JSONArray)a,y=(org.json.JSONArray)b;
+            if(x.length()!=y.length()) return false;
+            for(int i=0;i<x.length();i++) if(!equal(x.opt(i),y.opt(i))) return false;
+            return true;
+        }
         if (a instanceof Number && b instanceof Number) return new java.math.BigDecimal(a.toString()).compareTo(new java.math.BigDecimal(b.toString())) == 0;
         return a.toString().equals(b.toString());
     }

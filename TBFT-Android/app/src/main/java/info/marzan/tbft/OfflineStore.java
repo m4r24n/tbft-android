@@ -62,7 +62,7 @@ final class OfflineStore extends SQLiteOpenHelper {
     }
     synchronized List<Record> pending() {
         List<Record> out = new ArrayList<>();
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT " + COLUMNS + " FROM records WHERE dirty=1 ORDER BY CASE collection WHEN 'workspaces' THEN 0 WHEN 'projects' THEN 1 WHEN 'project_nodes' THEN 2 WHEN 'tasks' THEN 3 ELSE 4 END,rowid", null)) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT " + COLUMNS + " FROM records WHERE dirty=1 ORDER BY CASE collection WHEN 'workspaces' THEN 0 WHEN 'projects' THEN 1 WHEN 'project_nodes' THEN 2 WHEN 'wardrobes' THEN 3 WHEN 'tasks' THEN 4 ELSE 5 END,rowid", null)) {
             while (c.moveToNext()) out.add(new Record(c));
         }
         return out;
@@ -89,6 +89,59 @@ final class OfflineStore extends SQLiteOpenHelper {
     synchronized void removeReminder(String id) {
         Record r = get("reminders", id);
         if (r != null) write(r.table, id, r.body, r.base, true, true, r.version + 1, r.error);
+    }
+    synchronized JSONObject wardrobe(String workspace,String account) {
+        Record r=get("wardrobes",WardrobeRules.id(workspace,account));
+        return r==null ? WardrobeRules.fresh(workspace,account) : Json.copy(r.body);
+    }
+    synchronized void changeWardrobe(String workspace,String account,String date,java.util.function.Consumer<JSONObject> action) {
+        SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
+        try {
+            JSONObject doc=wardrobe(workspace,account);
+            action.accept(doc); WardrobeRules.reconcile(doc,date);
+            saveWardrobe(doc);
+            db.setTransactionSuccessful();
+        } finally { db.endTransaction(); }
+    }
+    private void saveWardrobe(JSONObject doc) {
+        if(doc.toString().length()>350000) throw new IllegalArgumentException("The wardrobe is too large to save safely. Export a backup and reduce saved outfits.");
+        Record previous=get("wardrobes",Json.text(doc,"id"));
+        Json.put(doc,"change_id",java.util.UUID.randomUUID().toString());
+        save("wardrobes",doc);
+        for(JSONObject batch:WardrobeRules.list(WardrobeRules.state(doc),"batches")) {
+            if(!Json.text(batch,"cancelled_at").isEmpty()) continue;
+            String taskId=Json.text(batch,"task_id"); Record task=get("tasks",taskId);
+            if(task==null) save("tasks",WardrobeRules.task(doc,batch));
+            else {
+                JSONObject prior=previous==null?null:WardrobeRules.batch(previous.body,taskId);
+                if((prior==null||Json.text(prior,"completed_at").isEmpty())&&!Json.text(batch,"completed_at").isEmpty())
+                    save("tasks",Json.merge(task.body,Json.of("completed_at",batch.opt("completed_at"))));
+            }
+        }
+    }
+    synchronized Record wardrobeForTask(String taskId) {
+        for(Record r:records("wardrobes")) if(WardrobeRules.batch(r.body,taskId)!=null) return r;
+        return null;
+    }
+    synchronized void saveTaskAndWardrobe(JSONObject task) {
+        SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
+        try {
+            String taskId=Json.text(task,"id"); Record prior=get("tasks",taskId),wardrobe=wardrobeForTask(taskId);
+            save("tasks",task);
+            if(wardrobe!=null) {
+                JSONObject doc=Json.copy(wardrobe.body);
+                boolean changed=false;
+                if(prior!=null && Json.text(prior.body,"completed_at").isEmpty())
+                    changed=WardrobeRules.complete(doc,taskId,Json.text(task,"completed_at"));
+                JSONObject batch=WardrobeRules.batch(doc,taskId);
+                if(prior!=null && Json.text(batch,"completed_at").isEmpty() && Json.text(batch,"cancelled_at").isEmpty()
+                        && Json.text(prior.body,"deleted_at").isEmpty() && !Json.text(task,"deleted_at").isEmpty()) {
+                    Json.put(WardrobeRules.batch(doc,taskId),"cancelled_at",task.opt("deleted_at")); changed=true;
+                }
+                if(changed) saveWardrobe(doc);
+            }
+            db.setTransactionSuccessful();
+        } finally { db.endTransaction(); }
     }
     /** Only call with an entire successfully paginated snapshot, never a partial/failed response. */
     synchronized void ingest(String table, List<JSONObject> rows) {
@@ -128,6 +181,14 @@ final class OfflineStore extends SQLiteOpenHelper {
     synchronized void conflict(Record sent, String message) {
         getWritableDatabase().execSQL("UPDATE records SET error=? WHERE collection=? AND id=? AND dirty=1", new Object[]{message, sent.table, sent.id});
     }
+    synchronized void acknowledgeManagedTask(Record sent,JSONObject generated,JSONObject remote) {
+        Record current=get(sent.table,sent.id);if(current==null)return;
+        JSONObject changes=SyncRules.delta(sent.base==null?generated:sent.base,sent.body);
+        changes.remove("completed_at");changes.remove("deleted_at");
+        JSONObject rebased=Json.merge(Json.merge(remote,changes),SyncRules.delta(sent.body,current.body));
+        boolean dirty=SyncRules.delta(remote,rebased).length()>0;
+        write(sent.table,sent.id,rebased,remote,dirty,false,current.version,"");
+    }
     synchronized void retry(Record record) {
         getWritableDatabase().execSQL("UPDATE records SET error='' WHERE collection=? AND id=?", new Object[]{record.table, record.id});
     }
@@ -138,10 +199,20 @@ final class OfflineStore extends SQLiteOpenHelper {
             if (current == null || current.version != reviewed.version) throw new IllegalStateException("This item changed while you were reviewing it. Open review again.");
             if (keepLocal) {
                 if (remote == null) throw new IllegalStateException("The server copy was deleted. Export the preserved local copy before creating a new item.");
+                if(current.table.equals("wardrobes") && (current.base==null || !SyncRules.equal(WardrobeRules.state(current.base).opt("batches"),WardrobeRules.state(remote).opt("batches"))))
+                    throw new IllegalStateException("Laundry changed on another device. Export this copy, then use the server copy to preserve its laundry history.");
                 JSONObject patch = SyncRules.delta(current.base == null ? new JSONObject() : current.base, current.body);
                 write(current.table,current.id,Json.merge(remote,patch),remote,true,current.removed,current.version+1,"");
             } else if (remote == null) db.delete("records","collection=? AND id=?",new String[]{current.table,current.id});
             else write(current.table,current.id,remote,remote,false,false,current.version+1,"");
+            if(current.table.equals("wardrobes") && !keepLocal) {
+                for(JSONObject batch:WardrobeRules.list(WardrobeRules.state(current.body),"batches")) {
+                    Record task=get("tasks",Json.text(batch,"task_id"));
+                    if(task!=null && task.base==null && (remote==null || WardrobeRules.batch(remote,task.id)==null))
+                        db.delete("records","collection='tasks' AND id=?",new String[]{task.id});
+                    else if(task!=null && task.dirty) write(task.table,task.id,task.body,task.base,true,false,task.version+1,"Laundry copy changed. Review this task before syncing it.");
+                }
+            }
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
     }
@@ -155,5 +226,42 @@ final class OfflineStore extends SQLiteOpenHelper {
             }
         }
         return Json.of("format", "tbft-offline-backup-v1", "exportedAt", java.time.Instant.now().toString(), "records", rows);
+    }
+    /** Imports only pending work, preserving the downloaded server base for explicit review. */
+    synchronized int importBackup(JSONObject backup,String workspace,String account) {
+        if(workspace.isEmpty() || !"tbft-offline-backup-v1".equals(Json.text(backup,"format")) || backup.optJSONArray("records")==null)
+            throw new IllegalArgumentException("Connect this account first, then choose a TBFT backup.");
+        java.util.Map<String,JSONObject> parents=new java.util.HashMap<>(); boolean sameWorkspace=false,sameAccount=false;
+        for(JSONObject entry:Json.rows(backup.optJSONArray("records"))) {
+            JSONObject body=entry.optJSONObject("body");if(body==null)throw new IllegalArgumentException("Invalid backup record");
+            String table=Json.text(entry,"collection"),id=Json.text(body,"id");java.util.UUID.fromString(id);
+            if(!id.equals(Json.text(entry,"id")))throw new IllegalArgumentException("Backup identity mismatch");
+            parents.put(table+":"+id,body);
+            if(table.equals("workspaces")&&workspace.equals(id))sameWorkspace=true;
+            if(table.equals("profiles")&&account.equals(id))sameAccount=true;
+        }
+        if(!sameWorkspace||!sameAccount)throw new IllegalArgumentException("This backup belongs to a different workspace or account.");
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();int count=0;
+        try {
+            for(JSONObject entry:Json.rows(backup.optJSONArray("records"))) {
+                String table=Json.text(entry,"collection");if(!entry.optBoolean("pending")||!SyncRules.WRITABLE.contains(table))continue;
+                JSONObject body=entry.optJSONObject("body");String id=Json.text(body,"id");
+                if(body.toString().length()>350000)throw new IllegalArgumentException("A backup record is too large");
+                String scoped=Json.text(body,"workspace_id");
+                if(table.equals("workspaces"))scoped=id;
+                if(table.equals("project_nodes")||table.equals("task_messages")) {
+                    String parentTable=table.equals("project_nodes")?"projects":"tasks",parentId=Json.text(body,table.equals("project_nodes")?"project_id":"task_id");
+                    JSONObject parent=parents.get(parentTable+":"+parentId);Record local=get(parentTable,parentId);if(parent==null&&local!=null)parent=local.body;
+                    scoped=parent==null?"":Json.text(parent,"workspace_id");
+                }
+                if(!workspace.equals(scoped))throw new IllegalArgumentException("A pending item belongs to a different workspace.");
+                if(table.equals("wardrobes")&&!account.equals(Json.text(body,"owner_user_id")))throw new IllegalArgumentException("This wardrobe belongs to another account.");
+                Record local=get(table,id);
+                if(local!=null&&local.dirty){if(!SyncRules.equal(local.body,body))throw new IllegalStateException("Pending work already exists here. Export and resolve it before importing.");continue;}
+                JSONObject base=entry.optJSONObject("serverBase");
+                write(table,id,body,base,true,entry.optBoolean("removed"),local==null?1:local.version+1,"Imported backup. Compare with the server, or retry after reviewing the local copy.");count++;
+            }
+            db.setTransactionSuccessful();return count;
+        } finally {db.endTransaction();}
     }
 }
