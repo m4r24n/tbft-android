@@ -119,8 +119,8 @@ begin
     for piece in select value from jsonb_array_elements(b->'items') loop perform (piece#>>'{}')::uuid; end loop;
   end loop;
   if tg_op='UPDATE' and exists(
-    select 1 from jsonb_array_elements(old.state->'batches') b
-    where not exists(select 1 from jsonb_array_elements(new.state->'batches') n where n->>'task_id'=b->>'task_id')
+    select 1 from jsonb_array_elements(old.state->'batches') previous_entry
+    where not exists(select 1 from jsonb_array_elements(new.state->'batches') n where n->>'task_id'=previous_entry->>'task_id')
   ) then raise exception 'Laundry history cannot be removed'; end if;
   return new;
 end $$;
@@ -211,6 +211,9 @@ create function public.sync_wardrobe(document jsonb,expected_revision bigint)
 returns setof public.wardrobes language plpgsql set search_path='' as $$
 declare current_row public.wardrobes; target uuid=(document->>'id')::uuid;
 begin
+  if expected_revision is null or expected_revision<0 or target is null or coalesce(document->>'change_id','')='' then
+    raise exception 'A version and change identifier are required' using errcode='22023';
+  end if;
   if auth.uid() is null or auth.uid() is distinct from (document->>'owner_user_id')::uuid
     or not public.is_workspace_member((document->>'workspace_id')::uuid) then raise exception 'Wardrobe access denied' using errcode='42501'; end if;
   -- Serialise first inserts as well as updates; the identifier is owner scoped.
