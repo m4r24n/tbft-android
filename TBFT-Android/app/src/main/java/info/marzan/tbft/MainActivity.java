@@ -26,6 +26,8 @@ public class MainActivity extends Activity {
     private boolean registered;
     private String moreSection="", projectSection="Tasks", month="";
     private WardrobeScreen wardrobeScreen;
+    private LinearLayout moreRow;
+    private int menuCount;
     private final Handler clock = new Handler(Looper.getMainLooper());
     private final Runnable tick = new Runnable() { public void run() { render(); clock.postDelayed(this, 60000); } };
     private final BroadcastReceiver receiver = new BroadcastReceiver() { @Override public void onReceive(Context c, Intent i) { render(); } };
@@ -187,6 +189,7 @@ public class MainActivity extends Activity {
             for(OfflineStore.Record t:repo.rows("tasks"))if(BoardRules.appears(t.body,value,repo.timezone(),repo.rollover(),Instant.now()))count++;
             Button b=button(week,String.valueOf(day)+(count>0?" ·":""),()->{date=value;render();});
             b.setPadding(0,0,0,0);b.setTextSize(13);b.setLayoutParams(new LinearLayout.LayoutParams(0,dp(48),1));Ui.selected(b,value.equals(selected));
+            if(!value.equals(selected))b.setBackgroundColor(Color.TRANSPARENT);
             b.setContentDescription(value+", "+count+" tasks");if(value.equals(repo.today())&&!value.equals(selected))b.setTextColor(ACCENT);
         }
         button(body,"Back to today",()->{date=repo.today();month="";render();});board(selected,true);
@@ -222,6 +225,7 @@ public class MainActivity extends Activity {
     private void more() {
         title(moreSection.isEmpty()?"Your space":moreSection,moreSection.isEmpty()?"A place for everything. Open only what you need.":"");
         if(moreSection.isEmpty()){
+            menuCount=0;
             menu("Workspace","People, timezone and daily rhythm",this::settings);
             menu("Archive","Finished chapters, ready to restore",()->{moreSection="Archive";render();});
             menu("Files","Project documents and links",()->{moreSection="Files";render();});
@@ -249,7 +253,9 @@ public class MainActivity extends Activity {
         }
     }
     private void menu(String title,String subtitle,Runnable action){
-        LinearLayout c=card(body);text(c,title+"  ›",18,INK).setTypeface(null,Typeface.BOLD);text(c,subtitle,13,MUTED);
+        if(menuCount++%2==0){moreRow=new LinearLayout(this);moreRow.setBaselineAligned(false);body.addView(moreRow);}
+        LinearLayout c=card(moreRow);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(144),1);lp.setMargins(dp(3),dp(5),dp(3),dp(5));c.setLayoutParams(lp);
+        text(c,title+"  ›",17,INK).setTypeface(null,Typeface.BOLD);text(c,subtitle,13,MUTED);
         c.setOnClickListener(v->action.run());c.setFocusable(true);c.setContentDescription(title+", "+subtitle);
     }
     private void files(String project) {

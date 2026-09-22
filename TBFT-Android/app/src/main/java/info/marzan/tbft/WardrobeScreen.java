@@ -26,7 +26,10 @@ final class WardrobeScreen {
         Ui.button(actions,"+ Add clothes",()->edit(null)); Ui.button(actions,"Settings",this::settings); body.addView(actions);
         LinearLayout tabs=Ui.chips(body);
         String[][] sections={{"available","Available"},{"in_use","In Use"},{"laundry","Laundry"},{"outfits","Outfits"}};
-        for(String[] s:sections) Ui.selected(Ui.button(tabs,s[1]+(s[0].equals("outfits")?"":" · "+WardrobeRules.total(doc,s[0])),()->{section=s[0];refresh.run();}),section.equals(s[0]));
+        for(String[] s:sections) {
+            Button b=Ui.button(tabs,s[1]+(s[0].equals("outfits")?"":" · "+WardrobeRules.total(doc,s[0])),()->{section=s[0];refresh.run();});
+            b.setTextSize(12);b.setPadding(dp(8),dp(6),dp(8),dp(6));Ui.selected(b,section.equals(s[0]));
+        }
         LinearLayout uses=Ui.chips(body);
         for(String[] f:new String[][]{{"all","All clothes"},{"home","Home"},{"outdoor","Outdoor"}})
             Ui.selected(Ui.button(uses,f[1],()->{use=f[0];refresh.run();}),use.equals(f[0]));

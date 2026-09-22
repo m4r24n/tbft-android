@@ -55,7 +55,8 @@ public class NativeScreensTest {
         assertEquals(0,WardrobeRules.total(repo.wardrobe(),"laundry"));assertEquals(3,WardrobeRules.count(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").get(0),"available"));
     }
     private void shot(Context c,UiDevice device,String name) throws Exception {
-        device.waitForIdle();File dir=new File(c.getExternalFilesDir(null),"screenshots");assertTrue(dir.exists()||dir.mkdirs());File shot=new File(dir,name+".png");assertTrue(device.takeScreenshot(shot));
+        device.waitForIdle();InstrumentationRegistry.getInstrumentation().waitForIdleSync();android.os.SystemClock.sleep(300);
+        File dir=new File(c.getExternalFilesDir(null),"screenshots");assertTrue(dir.exists()||dir.mkdirs());File shot=new File(dir,name+".png");assertTrue(device.takeScreenshot(shot));
         device.executeShellCommand("mkdir -p /sdcard/Download/tbft-native-shots");
         device.executeShellCommand("cp "+shot.getAbsolutePath()+" /sdcard/Download/tbft-native-shots/"+name+".png");
     }

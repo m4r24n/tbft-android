@@ -17,10 +17,14 @@ final class BrowserDownloads {
         return parsed;
     }
     static void save(String source,String agent,Function<String,String> cookies,OutputStream output,BooleanSupplier cancelled,LongConsumer progress) throws IOException {
+        save(source,agent,cookies,output,cancelled,progress,url->(HttpURLConnection)url.openConnection());
+    }
+    interface ConnectionFactory { HttpURLConnection open(URL url) throws IOException; }
+    static void save(String source,String agent,Function<String,String> cookies,OutputStream output,BooleanSupplier cancelled,LongConsumer progress,ConnectionFactory factory) throws IOException {
         URL url=secure(source);
         for(int redirects=0;redirects<=8;redirects++) {
             if(cancelled.getAsBoolean())throw new InterruptedIOException("Cancelled");
-            HttpURLConnection connection=(HttpURLConnection)url.openConnection();connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(15000);connection.setReadTimeout(20000);
+            HttpURLConnection connection=factory.open(url);connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(15000);connection.setReadTimeout(20000);
             try {
                 connection.setRequestProperty("User-Agent",agent);
                 String cookie=cookies.apply(url.toString());if(cookie!=null&&!cookie.isEmpty())connection.setRequestProperty("Cookie",cookie);

@@ -184,7 +184,8 @@ final class OfflineStore extends SQLiteOpenHelper {
     synchronized void acknowledgeManagedTask(Record sent,JSONObject generated,JSONObject remote) {
         Record current=get(sent.table,sent.id);if(current==null)return;
         JSONObject changes=SyncRules.delta(sent.base==null?generated:sent.base,sent.body);
-        changes.remove("completed_at");changes.remove("deleted_at");
+        // Keep a local reopen even when the wardrobe RPC created a completed task.
+        // Fields already applied by the RPC compare equal to the returned server row.
         JSONObject rebased=Json.merge(Json.merge(remote,changes),SyncRules.delta(sent.body,current.body));
         boolean dirty=SyncRules.delta(remote,rebased).length()>0;
         write(sent.table,sent.id,rebased,remote,dirty,false,current.version,"");

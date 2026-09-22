@@ -28,7 +28,7 @@ final class Ui {
     static Button button(LinearLayout p,String label,Runnable action) {
         Context c=p.getContext(); Button b=new Button(c); b.setText(label); b.setTextColor(INK); b.setTextSize(14); b.setAllCaps(false);
         b.setMinHeight(dp(c,48)); b.setMinimumHeight(dp(c,48)); b.setMinWidth(0); b.setMinimumWidth(0);
-        b.setPadding(dp(c,12),dp(c,6),dp(c,12),dp(c,6)); b.setBackground(shape(c,CARD,12)); b.setElevation(0);
+        b.setPadding(dp(c,12),dp(c,6),dp(c,12),dp(c,6)); b.setBackground(shape(c,CARD,12)); b.setStateListAnimator(null);b.setElevation(0);b.setTranslationZ(0);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(p.getOrientation()==LinearLayout.VERTICAL?-1:-2,-2); lp.setMargins(dp(c,2),dp(c,4),dp(c,2),dp(c,4));
         p.addView(b,lp); b.setOnClickListener(v->action.run()); return b;
     }

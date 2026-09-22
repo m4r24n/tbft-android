@@ -19,6 +19,7 @@ final class SyncEngine {
         for (JSONObject row : memberships) if (workspace.equals(Json.text(row, "workspace_id"))) member = true;
         if (!member) throw new SupabaseApi.ApiException(403, "Workspace membership unavailable. Local data is preserved; create/join a workspace on the web first.");
         store.setMeta("workspace", workspace);
+        List<String> unavailable = new ArrayList<>();
 
         // Parent records before children. Conflict rows are retained for explicit review.
         for (OfflineStore.Record pending : store.pending()) {
@@ -32,7 +33,10 @@ final class SyncEngine {
             try { if(current.table.equals("wardrobes")) pushWardrobe(current); else push(current); }
             catch (SupabaseApi.ApiException e) {
                 if (e.status == 400 || e.status == 403 || e.status == 409 || e.status == 422) store.conflict(current, current.table.equals("wardrobes") ? "Wardrobe needs review before syncing. Your phone's copy is preserved." : e.getMessage());
+                else if(current.table.equals("wardrobes") && (e.status==404 || e.status>=500)) unavailable.add("wardrobe upload");
                 else throw e;
+            } catch(java.io.IOException e) {
+                if(current.table.equals("wardrobes")) unavailable.add("wardrobe upload"); else throw e;
             }
         }
 
@@ -55,7 +59,6 @@ final class SyncEngine {
         store.setMeta("core_sync", java.time.Instant.now().toString());
 
         // One optional collection failing must not suppress tasks or other collections.
-        List<String> unavailable = new ArrayList<>();
         try { store.ingest("project_nodes", children("project_nodes", "project_id", projects)); } catch (Exception e) { unavailable.add("phases"); }
         try { store.ingest("task_messages", children("task_messages", "task_id", tasks)); } catch (Exception e) { unavailable.add("task notes"); }
         for (String table : new String[]{"reminders", "project_files", "activity_log", "wardrobes"}) {
