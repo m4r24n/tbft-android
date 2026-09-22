@@ -40,7 +40,10 @@ public class NativeScreensTest {
         device.findObject(By.text("Wardrobe")).click();assertTrue(device.wait(Until.hasObject(By.text("White T-shirt")),3000));shot(context,device,"05-wardrobe");
         device.findObject(By.text("White T-shirt")).click();assertTrue(device.wait(Until.hasObject(By.text("Wear / take out")),3000));
         device.findObject(By.text("Wear / take out")).click();device.wait(Until.hasObject(By.text("1 piece")),3000);device.findObject(By.text("1 piece")).click();
-        repo.io.submit(()->{}).get(5,java.util.concurrent.TimeUnit.SECONDS);assertEquals(1,WardrobeRules.total(repo.wardrobe(),"in_use"));
+        device.waitForIdle();
+        long deadline=android.os.SystemClock.uptimeMillis()+5000;
+        while(WardrobeRules.total(repo.wardrobe(),"in_use")!=1 && android.os.SystemClock.uptimeMillis()<deadline) android.os.SystemClock.sleep(50);
+        assertEquals(1,WardrobeRules.total(repo.wardrobe(),"in_use"));
         UiObject2 inUse=device.wait(Until.findObject(By.textStartsWith("In Use ·")),3000);assertNotNull(inUse);inUse.click();shot(context,device,"06-in-use");
         device.findObject(By.textStartsWith("Outfits")).click();shot(context,device,"07-outfits");
         device.findObject(By.text("Browser")).click();assertTrue(device.wait(Until.hasObject(By.text("Website address")),5000));shot(context,device,"08-browser");
@@ -52,6 +55,8 @@ public class NativeScreensTest {
         assertEquals(0,WardrobeRules.total(repo.wardrobe(),"laundry"));assertEquals(3,WardrobeRules.count(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").get(0),"available"));
     }
     private void shot(Context c,UiDevice device,String name) throws Exception {
-        device.waitForIdle();File dir=new File(c.getExternalFilesDir(null),"screenshots");assertTrue(dir.exists()||dir.mkdirs());assertTrue(device.takeScreenshot(new File(dir,name+".png")));
+        device.waitForIdle();File dir=new File(c.getExternalFilesDir(null),"screenshots");assertTrue(dir.exists()||dir.mkdirs());File shot=new File(dir,name+".png");assertTrue(device.takeScreenshot(shot));
+        device.executeShellCommand("mkdir -p /sdcard/Download/tbft-native-shots");
+        device.executeShellCommand("cp "+shot.getAbsolutePath()+" /sdcard/Download/tbft-native-shots/"+name+".png");
     }
 }
