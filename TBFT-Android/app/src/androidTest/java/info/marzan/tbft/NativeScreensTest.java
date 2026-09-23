@@ -10,9 +10,17 @@ import static org.junit.Assert.*;
 
 /** Fixture data is compiled into the test APK only; no live account or network is needed. */
 public class NativeScreensTest {
+    @org.junit.Rule public org.junit.rules.TestWatcher captureFailure=new org.junit.rules.TestWatcher(){
+        @Override protected void failed(Throwable e,org.junit.runner.Description description){try{
+            Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+            shot(c,device,"99-failure");File hierarchy=new File(c.getExternalFilesDir(null),"failure-ui.xml");device.dumpWindowHierarchy(hierarchy);
+            device.executeShellCommand("cp "+hierarchy.getAbsolutePath()+" /sdcard/Download/tbft-native-shots/failure-ui.xml");
+        }catch(Exception ignored){}}
+    };
     @Test public void offlineDailyFlowAndScreenshots() throws Exception {
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
         UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        device.wakeUp();device.executeShellCommand("wm dismiss-keyguard");device.pressHome();device.waitForIdle();
         device.executeShellCommand("svc wifi disable");device.executeShellCommand("svc data disable");
         String account="cd820422-7a93-43f7-8c9e-7b67e620af66",partner="bad21cf5-83d4-4c6a-88c9-d3d098082757",space="053dbac3-7105-4423-a9a4-4f21d3a5e583",project=UUID.randomUUID().toString();
         context.getSharedPreferences("tbft_session_v1",Context.MODE_PRIVATE).edit().clear().putString("account",account).commit();
@@ -38,8 +46,9 @@ public class NativeScreensTest {
             WardrobeRules.saveItem(d,"","Cotton briefs","underwear","#384555","Navy","both","",3);
             WardrobeRules.saveItem(d,"","Everyday tank","tanks","#F5F1E5","Cream","home","",2);
         });
-        context.startActivity(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        assertTrue(device.wait(Until.hasObject(By.text("Today")),10000));shot(context,device,"01-today");
+        InstrumentationRegistry.getInstrumentation().startActivitySync(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();device.waitForIdle();
+        assertTrue(device.wait(Until.hasObject(By.text("Today")),30000));shot(context,device,"01-today");
         device.findObject(By.text("More")).click();assertTrue(device.wait(Until.hasObject(By.text("Your space")),3000));
         assertNull(device.findObject(By.text("Recent activity")));assertNull(device.findObject(By.text("Restore")));shot(context,device,"02-more");
         device.findObject(By.text("Projects")).click();assertTrue(device.wait(Until.hasObject(By.text("A more thoughtful home")),3000));shot(context,device,"03-projects");
