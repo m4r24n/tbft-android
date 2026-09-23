@@ -96,6 +96,7 @@ public class NativeScreensTest {
         while(!"yes".equals(Json.text(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").get(0),"hood"))&&android.os.SystemClock.uptimeMillis()<deadline)android.os.SystemClock.sleep(50);
         assertEquals("long",Json.text(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").get(0),"sleeve"));
         assertEquals("yes",Json.text(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").get(0),"hood"));
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().textStartsWith("Outfits"));
         device.findObject(By.textStartsWith("Outfits")).click();shot(context,device,"09-outfits");
         device.findObject(By.text("Browser")).click();assertTrue(device.wait(Until.hasObject(By.text("Website address")),5000));shot(context,device,"10-browser");
         device.pressBack();device.waitForIdle();
