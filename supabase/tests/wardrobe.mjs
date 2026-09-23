@@ -17,13 +17,14 @@ grant usage on schema public,auth to authenticated;grant select,insert,update on
 insert into public.profiles values('${U}'),('${OTHER}');insert into public.workspaces(id) values('${W}');insert into public.workspace_members values('${W}','${U}'),('${W}','${OTHER}');`);
 await db.exec(await readFile(new URL('../migrations/20260921205335_wardrobe_native_v1.sql',import.meta.url),'utf8'));
 await db.exec(`create trigger test_task_schedule before insert on public.tasks for each row execute function public.validate_new_task_schedule();set role authenticated;select set_config('request.jwt.claim.sub','${U}',false);`);
-const doc={id:md5(`wardrobe:${W}:${U}`),workspace_id:W,owner_user_id:U,change_id:randomUUID(),state:{categories:[{id:'tshirts',name:'T-shirts',kind:'top'}],items:[{id:randomUUID(),name:'White T-shirt',category:'tshirts',color:'#FFFFFF',use:'both',pieces:[{id:randomUUID(),status:'laundry',laundry_token:randomUUID()},{id:randomUUID(),status:'laundry',laundry_token:randomUUID()}]}],outfits:[],threshold:2,sequence:1,batches:[]}};
+const doc={id:md5(`wardrobe:${W}:${U}`),workspace_id:W,owner_user_id:U,change_id:randomUUID(),state:{categories:[{id:'tshirts',name:'T-shirts',kind:'top'}],items:[{id:randomUUID(),name:'White T-shirt',category:'tshirts',color:'#FFFFFF',shape:'jacket',sleeve:'short',hood:'yes',use:'both',pieces:[{id:randomUUID(),status:'laundry',laundry_token:randomUUID()},{id:randomUUID(),status:'laundry',laundry_token:randomUUID()}]}],outfits:[],threshold:2,sequence:1,batches:[]}};
 const makeBatch=(d,sequence)=>({sequence,task_id:md5(`${d.id}:laundry:${sequence}`),date:'2026-01-01',completed_at:null,entries:d.state.items[0].pieces.map(p=>({piece_id:p.id,token:p.laundry_token}))});
 doc.state.batches.push(makeBatch(doc,1));
 const sync=async(d,version)=>(await db.query('select * from public.sync_wardrobe($1::jsonb,$2)',[JSON.stringify(d),version])).rows[0];
 const count=async()=>Number((await db.query('select count(*) as n from public.tasks')).rows[0].n);
 const check=()=>checks++;
 let server=await sync(doc,0);assert.equal(await count(),1);assert.equal(server.revision,1);check();
+assert.equal(server.state.items[0].shape,'jacket');assert.equal(server.state.items[0].sleeve,'short');assert.equal(server.state.items[0].hood,'yes');check();
 assert.equal((await sync(doc,0)).revision,1);assert.equal(await count(),1);check();
 await assert.rejects(sync({...doc,change_id:randomUUID()},0),e=>e.code==='PT409');check();
 await assert.rejects(sync({...doc,change_id:randomUUID()},null),e=>e.code==='22023');check();

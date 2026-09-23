@@ -15,6 +15,12 @@ public class WardrobeStoreTest {
     @Before public void setup(){store=new OfflineStore(RuntimeEnvironment.getApplication(),account);}
     @After public void close(){store.close();}
     private String laundry(){store.changeWardrobe(space,account,date,d->{WardrobeRules.saveItem(d,"","White T-shirt","tshirts","#FFFFFF","White","home","",2);String item=Json.text(WardrobeRules.list(WardrobeRules.state(d),"items").get(0),"id");Json.put(WardrobeRules.state(d),"threshold",2);WardrobeRules.move(d,item,"available","laundry",2);});return Json.text(WardrobeRules.activeBatch(store.wardrobe(space,account)),"task_id");}
+    @Test public void appearancePersistsThroughLaundryAndDatabaseReopen(){
+        String task=laundry();store.changeWardrobe(space,account,date,d->{String id=Json.text(WardrobeRules.list(WardrobeRules.state(d),"items").get(0),"id");WardrobeRules.appearance(d,id,"jacket","short","yes");});
+        store.saveTaskAndWardrobe(Json.merge(store.get("tasks",task).body,Json.of("completed_at",Json.now())));
+        store.close();store=new OfflineStore(RuntimeEnvironment.getApplication(),account);JSONObject doc=store.wardrobe(space,account),g=WardrobeRules.list(WardrobeRules.state(doc),"items").get(0);
+        assertEquals("short",WardrobeRules.sleeve(doc,g));assertTrue(WardrobeRules.hood(doc,g));assertEquals(2,WardrobeRules.count(g,"available"));
+    }
     @Test public void clothingAndBoardTaskSurviveDatabaseReopen(){String task=laundry();store.close();store=new OfflineStore(RuntimeEnvironment.getApplication(),account);assertEquals(2,WardrobeRules.total(store.wardrobe(space,account),"laundry"));assertTrue(store.get("tasks",task).dirty);assertEquals("wardrobes",store.pending().get(0).table);}
     @Test public void completingBoardTaskReturnsItsClothesAtomically(){String id=laundry();store.saveTaskAndWardrobe(Json.merge(store.get("tasks",id).body,Json.of("completed_at",Json.now())));assertEquals(2,WardrobeRules.total(store.wardrobe(space,account),"available"));assertNotEquals("",Json.text(store.get("tasks",id).body,"completed_at"));}
     @Test public void wardrobeFinishAlsoCompletesExistingTask(){String id=laundry();store.changeWardrobe(space,account,date,d->WardrobeRules.finishBasket(d,date));assertFalse(Json.text(store.get("tasks",id).body,"completed_at").isEmpty());}

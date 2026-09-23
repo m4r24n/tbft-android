@@ -18,5 +18,26 @@ public class WardrobeRulesTest {
     @Test public void zeroThresholdDisablesAutomaticTask(){String id=add("Tee","tshirts",10);Json.put(WardrobeRules.state(doc),"threshold",0);WardrobeRules.move(doc,id,"available","laundry",10);WardrobeRules.reconcile(doc,DATE);assertNull(WardrobeRules.activeBatch(doc));}
     @Test public void outfitNeedsAvailableTopAndBottom(){String top=add("Tee","tshirts",1),bottom=add("Jeans","jeans",1);assertEquals(1,WardrobeRules.suggestions(doc,"home").size());WardrobeRules.wear(doc,Arrays.asList(top,bottom));assertEquals(2,WardrobeRules.total(doc,"in_use"));assertTrue(WardrobeRules.suggestions(doc,"all").isEmpty());assertThrows(IllegalArgumentException.class,()->WardrobeRules.wear(doc,Arrays.asList(top,bottom)));}
     @Test public void cannotShrinkAwayClothesInUse(){String id=add("Tee","tshirts",2);WardrobeRules.move(doc,id,"available","in_use",2);assertThrows(IllegalArgumentException.class,()->WardrobeRules.saveItem(doc,id,"Tee","tshirts","#FFFFFF","White","both","",1));}
+    @Test public void appearanceDefaultsWorkWithOlderItems(){
+        String tee=add("Tee","tshirts",1),hoodie=add("Hoodie","hoodies",1),tank=add("Tank","tanks",1),underwear=add("Briefs","underwear",1);
+        assertEquals("short",WardrobeRules.sleeve(doc,WardrobeRules.item(doc,tee)));
+        assertEquals("long",WardrobeRules.sleeve(doc,WardrobeRules.item(doc,hoodie)));assertTrue(WardrobeRules.hood(doc,WardrobeRules.item(doc,hoodie)));
+        assertEquals("tank",WardrobeRules.shape(doc,WardrobeRules.item(doc,tank)));assertEquals("none",WardrobeRules.sleeve(doc,WardrobeRules.item(doc,tank)));
+        assertEquals("briefs",WardrobeRules.shape(doc,WardrobeRules.item(doc,underwear)));
+    }
+    @Test public void sleeveAndHoodAreIndependentAndSurviveOlderEdits(){
+        String id=add("Light jacket","jackets",2);WardrobeRules.appearance(doc,id,"jacket","short","yes");
+        JSONObject g=WardrobeRules.item(doc,id);assertEquals("short",WardrobeRules.sleeve(doc,g));assertTrue(WardrobeRules.hood(doc,g));
+        WardrobeRules.saveItem(doc,id,"Edited jacket","jackets","#AB19EF","Purple","both","",2);
+        assertTrue(WardrobeRules.hood(doc,g));assertEquals("short",WardrobeRules.sleeve(doc,g));
+        WardrobeRules.appearance(doc,id,"hoodie","long","no");assertFalse(WardrobeRules.hood(doc,g));assertEquals("long",WardrobeRules.sleeve(doc,g));
+        assertThrows(IllegalArgumentException.class,()->WardrobeRules.appearance(doc,id,"jacket","broken","yes"));
+    }
+    @Test public void newCompartmentsAreAddedOnceWithoutChangingExistingOnes(){
+        JSONArray categories=WardrobeRules.state(doc).optJSONArray("categories");
+        for(int i=categories.length()-1;i>=0;i--)if(Arrays.asList("underwear","tanks").contains(Json.text(categories.optJSONObject(i),"id")))categories.remove(i);
+        WardrobeRules.category(doc,"Camping layers","layer");int before=categories.length();
+        WardrobeRules.ensureCategories(doc);WardrobeRules.ensureCategories(doc);assertEquals(before+2,categories.length());assertEquals("Tank tops",WardrobeRules.categoryName(doc,"tanks"));
+    }
     @Test public void documentEqualityIgnoresObjectKeyOrder(){assertTrue(SyncRules.equal(Json.object("{\"a\":1,\"b\":[{\"x\":2,\"y\":3}]}"),Json.object("{\"b\":[{\"y\":3,\"x\":2}],\"a\":1.0}")));}
 }

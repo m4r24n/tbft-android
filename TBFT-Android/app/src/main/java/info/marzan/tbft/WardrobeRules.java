@@ -24,7 +24,7 @@ final class WardrobeRules {
         String[][] defaults = {{"tshirts","T-shirts","top"},{"shirts","Shirts","shirt"},{"shorts","Shorts","shorts"},
                 {"jeans","Jeans","bottom"},{"pants","Pants","bottom"},{"jackets","Jackets","layer"},
                 {"hoodies","Hoodies","layer"},{"sweaters","Sweaters","top"},{"dresses","Dresses","one_piece"},
-                {"shoes","Shoes","shoes"},{"other","Other","other"}};
+                {"shoes","Shoes","shoes"},{"underwear","Underwear","other"},{"tanks","Tank tops","top"},{"other","Other","other"}};
         for (String[] c : defaults) categories.put(Json.of("id",c[0],"name",c[1],"kind",c[2]));
         return Json.of("id",id(workspace,owner),"workspace_id",workspace,"owner_user_id",owner,"revision",0,
                 "state",Json.of("categories",categories,"items",new JSONArray(),"outfits",new JSONArray(),
@@ -50,6 +50,46 @@ final class WardrobeRules {
     static String kind(JSONObject doc,JSONObject item) {
         for(JSONObject c:list(state(doc),"categories")) if(Json.text(item,"category").equals(Json.text(c,"id"))) return Json.text(c,"kind");
         return "other";
+    }
+    static final List<String> SHAPES=Arrays.asList("auto","tshirt","shirt","sweater","hoodie","jacket","jeans","trousers","shorts","skirt","dress","tank","briefs","boxers","shoes","cap","bag","socks","other");
+    static final List<String> SLEEVES=Arrays.asList("auto","short","long","none");
+    static void ensureCategories(JSONObject doc) {
+        String[][] additions={{"underwear","Underwear","other"},{"tanks","Tank tops","top"}};
+        for(String[] a:additions) {
+            boolean exists=false;for(JSONObject c:list(state(doc),"categories"))if(a[0].equals(Json.text(c,"id"))||a[1].equalsIgnoreCase(Json.text(c,"name")))exists=true;
+            if(!exists)state(doc).optJSONArray("categories").put(Json.of("id",a[0],"name",a[1],"kind",a[2]));
+        }
+    }
+    static String shape(JSONObject doc,JSONObject item) {
+        String selected=Json.text(item,"shape");
+        if(SHAPES.contains(selected)&&!selected.equals("auto"))return selected;
+        String category=Json.text(item,"category");
+        if(category.equals("hoodies"))return "hoodie";
+        if(category.equals("sweaters"))return "sweater";
+        if(category.equals("jeans"))return "jeans";
+        if(category.equals("underwear"))return "briefs";
+        if(category.equals("tanks"))return "tank";
+        switch(kind(doc,item)) {
+            case "top":return "tshirt";case "layer":return "jacket";case "bottom":return "trousers";case "one_piece":return "dress";
+            default:return kind(doc,item);
+        }
+    }
+    static boolean hasSleeves(String shape) {return Arrays.asList("tshirt","shirt","sweater","hoodie","jacket","dress").contains(shape);}
+    static String sleeve(JSONObject doc,JSONObject item) {
+        String shape=shape(doc,item),value=Json.text(item,"sleeve");
+        if(!hasSleeves(shape))return "none";
+        if(SLEEVES.contains(value)&&!value.equals("auto"))return value;
+        return shape.equals("tshirt")||shape.equals("dress")?"short":"long";
+    }
+    static boolean hood(JSONObject doc,JSONObject item) {
+        String shape=shape(doc,item);
+        if(!hasSleeves(shape)&&!shape.equals("tank"))return false;
+        String value=Json.text(item,"hood");return value.equals("yes")||(!value.equals("no")&&shape.equals("hoodie"));
+    }
+    // Optional fields inside the existing document: older clients preserve them when editing.
+    static void appearance(JSONObject doc,String id,String shape,String sleeve,String hood) {
+        if(!SHAPES.contains(shape)||!SLEEVES.contains(sleeve)||!Arrays.asList("auto","yes","no").contains(hood))throw new IllegalArgumentException("Choose a garment shape and sleeve length.");
+        JSONObject item=item(doc,id);Json.put(item,"shape",shape);Json.put(item,"sleeve",sleeve);Json.put(item,"hood",hood);
     }
     static void category(JSONObject doc,String name,String kind) {
         name=name.trim();

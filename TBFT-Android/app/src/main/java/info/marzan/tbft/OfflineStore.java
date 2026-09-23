@@ -92,7 +92,8 @@ final class OfflineStore extends SQLiteOpenHelper {
     }
     synchronized JSONObject wardrobe(String workspace,String account) {
         Record r=get("wardrobes",WardrobeRules.id(workspace,account));
-        return r==null ? WardrobeRules.fresh(workspace,account) : Json.copy(r.body);
+        JSONObject doc=r==null ? WardrobeRules.fresh(workspace,account) : Json.copy(r.body);
+        WardrobeRules.ensureCategories(doc);return doc;
     }
     synchronized void changeWardrobe(String workspace,String account,String date,java.util.function.Consumer<JSONObject> action) {
         SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();

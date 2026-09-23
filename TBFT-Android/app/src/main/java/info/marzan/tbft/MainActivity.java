@@ -33,7 +33,7 @@ public class MainActivity extends Activity {
     private final BroadcastReceiver receiver = new BroadcastReceiver() { @Override public void onReceive(Context c, Intent i) { render(); } };
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); repo = TbftRepository.get(this); wardrobeScreen=new WardrobeScreen(this,repo,this::render);
-        if (state != null) { tab = state.getString("tab", "Today"); date = state.getString("date", ""); projectId = state.getString("project", ""); }
+        if (state != null) { wardrobeScreen.restoreState(state); tab = state.getString("tab", "Today"); date = state.getString("date", ""); projectId = state.getString("project", ""); }
         SyncJobs.schedule(this); render();
     }
     @Override protected void onStart() {
@@ -51,8 +51,9 @@ public class MainActivity extends Activity {
         registerReceiver(receiver,new IntentFilter(TbftRepository.CHANGED),getPackageName()+".permission.LOCAL_UPDATES",null);
     }
     @Override public void onSaveInstanceState(Bundle out) {
-        super.onSaveInstanceState(out); out.putString("tab", tab); out.putString("date", date); out.putString("project", projectId);
+        super.onSaveInstanceState(out); wardrobeScreen.saveState(out); out.putString("tab", tab); out.putString("date", date); out.putString("project", projectId);
     }
+    @Override public void onBackPressed() {if(tab.equals("Wardrobe")&&wardrobeScreen.back())return;super.onBackPressed();}
     private int dp(int n) { return (int)(n * getResources().getDisplayMetrics().density + .5f); }
     private LinearLayout column() { LinearLayout v = new LinearLayout(this); v.setOrientation(LinearLayout.VERTICAL); return v; }
     private TextView text(LinearLayout parent, String value, int size, int color) {
@@ -66,7 +67,7 @@ public class MainActivity extends Activity {
     }
     private void render() {
         if (isFinishing() || isDestroyed()) return;
-        String location = tab + ":" + projectId + ":" + moreSection + ":" + projectSection + ":" + (tab.equals("Today") ? repo.today() : date);
+        String location = tab + ":" + (tab.equals("Wardrobe")?wardrobeScreen.location():"") + ":" + projectId + ":" + moreSection + ":" + projectSection + ":" + (tab.equals("Today") ? repo.today() : date);
         int previousY = contentScroll != null && location.equals(renderedPage) ? contentScroll.getScrollY() : 0;
         renderedPage = location;
         page = column(); page.setBackgroundColor(BG);
