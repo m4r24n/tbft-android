@@ -56,7 +56,9 @@ final class WardrobeRules {
     static void ensureCategories(JSONObject doc) {
         String[][] additions={{"underwear","Underwear","other"},{"tanks","Tank tops","top"}};
         for(String[] a:additions) {
-            boolean exists=false;for(JSONObject c:list(state(doc),"categories"))if(a[0].equals(Json.text(c,"id"))||a[1].equalsIgnoreCase(Json.text(c,"name")))exists=true;
+            boolean exists=false;JSONArray removed=state(doc).optJSONArray("removed_categories");
+            if(removed!=null)for(int i=0;i<removed.length();i++)if(a[0].equals(removed.optString(i)))exists=true;
+            for(JSONObject c:list(state(doc),"categories"))if(a[0].equals(Json.text(c,"id"))||a[1].equalsIgnoreCase(Json.text(c,"name")))exists=true;
             if(!exists)state(doc).optJSONArray("categories").put(Json.of("id",a[0],"name",a[1],"kind",a[2]));
         }
     }
@@ -97,6 +99,32 @@ final class WardrobeRules {
         if(!Arrays.asList("top","shirt","bottom","shorts","layer","one_piece","shoes","other").contains(kind)) throw new IllegalArgumentException("Choose a clothing shape.");
         for(JSONObject c:list(state(doc),"categories")) if(name.equalsIgnoreCase(Json.text(c,"name"))) throw new IllegalArgumentException("That category already exists.");
         state(doc).optJSONArray("categories").put(Json.of("id",UUID.randomUUID().toString(),"name",name,"kind",kind));
+    }
+    static int categoryCount(JSONObject doc,String id) {
+        int count=0;for(JSONObject item:list(state(doc),"items"))if(id.equals(Json.text(item,"category")))count+=count(item,"all");return count;
+    }
+    static void renameCategory(JSONObject doc,String id,String name) {
+        name=name.trim();if(name.isEmpty()||name.length()>50)throw new IllegalArgumentException("Shelf names need 1–50 characters.");
+        JSONObject selected=null;
+        for(JSONObject c:list(state(doc),"categories")) {
+            if(id.equals(Json.text(c,"id")))selected=c;
+            else if(name.equalsIgnoreCase(Json.text(c,"name")))throw new IllegalArgumentException("That shelf name already exists.");
+        }
+        if(selected==null)throw new IllegalArgumentException("This shelf was already removed.");Json.put(selected,"name",name);
+    }
+    static void removeCategory(JSONObject doc,String id,String destination) {
+        JSONObject source=null,target=null;
+        for(JSONObject c:list(state(doc),"categories")){if(id.equals(Json.text(c,"id")))source=c;if(destination.equals(Json.text(c,"id")))target=c;}
+        if(source==null)throw new IllegalArgumentException("This shelf was already removed.");
+        if(categoryCount(doc,id)>0&&(target==null||id.equals(destination)))throw new IllegalArgumentException("Choose another shelf for these clothes first.");
+        for(JSONObject item:list(state(doc),"items"))if(id.equals(Json.text(item,"category"))) {
+            // A shelf move must not change the illustration, piece state or laundry identity.
+            appearance(doc,Json.text(item,"id"),shape(doc,item),sleeve(doc,item),hood(doc,item)?"yes":"no");
+            Json.put(item,"category",destination);
+        }
+        JSONArray categories=state(doc).optJSONArray("categories");for(int i=0;i<categories.length();i++)if(id.equals(Json.text(categories.optJSONObject(i),"id"))){categories.remove(i);break;}
+        JSONArray removed=state(doc).optJSONArray("removed_categories");if(removed==null){removed=new JSONArray();Json.put(state(doc),"removed_categories",removed);}
+        boolean recorded=false;for(int i=0;i<removed.length();i++)if(id.equals(removed.optString(i)))recorded=true;if(!recorded)removed.put(id);
     }
     static void saveItem(JSONObject doc,String id,String name,String category,String color,String colorName,String use,String note,int quantity) {
         if(name.trim().isEmpty() || name.trim().length()>120) throw new IllegalArgumentException("Item names need 1–120 characters.");

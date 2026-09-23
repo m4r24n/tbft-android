@@ -19,7 +19,8 @@ final class GarmentView extends View {
     }
     void update(String shape,String sleeve,boolean hood,String hex) {
         this.shape=shape;this.sleeve=sleeve;this.hood=hood;
-        try { colour=Color.parseColor(hex); } catch(IllegalArgumentException e) { colour=0xffb8b1a3; }
+        // A new item and a partially typed hex value are valid preview states.
+        colour=hex!=null&&hex.matches("#[0-9a-fA-F]{6}")?Color.parseColor(hex):0xffb8b1a3;
         invalidate();
     }
     @Override protected void onDraw(Canvas c) {
@@ -76,10 +77,15 @@ final class GarmentView extends View {
             case "other":canvas.drawRoundRect(33,33,67,70,6,6,p);break;
             default:
                 if(hood) {
-                    p.setStyle(Paint.Style.FILL);p.setColor(mix(colour,Color.BLACK,.16f));canvas.drawOval(36,9,64,32,p);
-                    p.setStyle(Paint.Style.STROKE);p.setColor(seam);canvas.drawOval(36,9,64,32,p);
-                    line(canvas,p,44,30,43,44);line(canvas,p,56,30,57,44);
-                    if(shape.equals("hoodie"))canvas.drawPath(polygon(new float[]{40,62,60,62,65,77,35,77}),p);
+                    // A folded fabric hood around a recessed opening, not a head-shaped disc.
+                    Path outer=new Path();outer.moveTo(35,27);outer.cubicTo(30,15,33,3,43,1);outer.quadTo(50,-1,57,1);outer.cubicTo(67,3,70,15,65,27);outer.lineTo(58,34);outer.lineTo(50,28);outer.lineTo(42,34);outer.close();
+                    p.setStyle(Paint.Style.FILL);p.setColor(mix(colour,Color.WHITE,.08f));canvas.drawPath(outer,p);
+                    p.setStyle(Paint.Style.STROKE);p.setColor(seam);canvas.drawPath(outer,p);
+                    Path opening=new Path();opening.moveTo(41,22);opening.cubicTo(37,11,42,6,50,6);opening.cubicTo(58,6,63,11,59,22);opening.quadTo(55,29,50,29);opening.quadTo(45,29,41,22);opening.close();
+                    p.setStyle(Paint.Style.FILL);p.setColor(mix(colour,Color.BLACK,.39f));canvas.drawPath(opening,p);
+                    p.setStyle(Paint.Style.STROKE);p.setColor(seam);canvas.drawPath(opening,p);
+                    line(canvas,p,36,26,43,31);line(canvas,p,64,26,57,31);line(canvas,p,44,30,43,44);line(canvas,p,56,30,57,44);
+                    p.setStrokeWidth(1.8f);line(canvas,p,43,43,43,46);line(canvas,p,57,43,57,46);p.setStrokeWidth(1.1f);
                 }
                 if(shape.equals("shirt")||shape.equals("jacket")) {
                     line(canvas,p,50,25,50,85);canvas.drawPath(polygon(new float[]{36,16,49,23,43,34}),p);canvas.drawPath(polygon(new float[]{64,16,51,23,57,34}),p);
@@ -87,6 +93,7 @@ final class GarmentView extends View {
                     canvas.drawRect(56,40,64,50,p);
                     if(shape.equals("jacket")){line(canvas,p,36,62,45,57);line(canvas,p,55,57,64,62);}
                 } else if(!hood)canvas.drawArc(42,15,58,31,0,180,false,p);
+                if(shape.equals("hoodie"))canvas.drawPath(polygon(new float[]{40,62,60,62,65,77,35,77}),p);
                 line(canvas,p,34,81,66,81);
                 if(sleeve.equals("long")){line(canvas,p,11,65,24,69);line(canvas,p,76,69,89,65);}
                 if(shape.equals("sweater")){for(int xx=35;xx<66;xx+=4)line(canvas,p,xx,81,xx,85);}

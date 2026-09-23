@@ -44,9 +44,8 @@ final class WardrobeCabinet extends FrameLayout {
             shelves.setVisibility(INVISIBLE);
             Wood doors=new Wood(c,true);addView(doors,new LayoutParams(-1,-1));
             LinearLayout invitation=Ui.column(c);invitation.setGravity(Gravity.CENTER);invitation.setPadding(Ui.dp(c,25),0,Ui.dp(c,25),0);
-            TextView title=Ui.text(invitation,"A place for\neverything.",28,0xff423a2d);title.setTypeface(Typeface.create("serif",Typeface.NORMAL));title.setGravity(Gravity.CENTER);
             Button button=Ui.button(invitation,"Open wardrobe",()->{});button.setBackground(Ui.shape(c,0xfff5ecd9,24));
-            LayoutParams label=new LayoutParams(-2,-2,Gravity.CENTER);label.bottomMargin=Ui.dp(c,16);addView(invitation,label);
+            LayoutParams label=new LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);label.bottomMargin=Ui.dp(c,32);addView(invitation,label);
             button.setOnClickListener(v->{
                 button.setEnabled(false);invitation.setVisibility(GONE);shelves.setVisibility(VISIBLE);shelves.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
                 if(!ValueAnimator.areAnimatorsEnabled()){opened.run();return;}
@@ -78,12 +77,42 @@ final class WardrobeCabinet extends FrameLayout {
         }
         private void panel(Canvas c,float x,float y,float w,float h,boolean left,float u){
             if(w<=0)return;c.save();c.clipRect(x,y,x+w,y+h);
-            p.setColor(WOOD);c.drawRoundRect(x,y,x+w,y+h,4*u,4*u,p);
-            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u);p.setColor(0xff927b59);c.drawRoundRect(x+7*u,y+8*u,x+w-7*u,y+h-8*u,3*u,3*u,p);
-            for(int i=0;i<9;i++){float xx=x+w*(i+1)/10;p.setColor(i%2==0?0x18907650:0x18fff8de);Path grain=new Path();grain.moveTo(xx,y+12*u);grain.cubicTo(xx+5*u,y+h*.3f,xx-5*u,y+h*.7f,xx,y+h-12*u);c.drawPath(grain,p);}
-            p.setStyle(Paint.Style.FILL);p.setColor(0xff77603e);float hx=left?x+w-15*u:x+15*u;c.drawRoundRect(hx-2*u,y+h*.58f,hx+2*u,y+h*.58f+24*u,2*u,2*u,p);
-            p.setColor(0xffd8c08b);c.drawRoundRect(hx-u,y+h*.58f,hx+u,y+h*.58f+22*u,u,u,p);c.restore();
+            p.setStyle(Paint.Style.FILL);p.setShader(new LinearGradient(x,y,x+w,y,new int[]{0xff765033,0xffa47b4c,0xff8d613b,0xff69442c},null,Shader.TileMode.CLAMP));
+            c.drawRoundRect(x,y,x+w,y+h,4*u,4*u,p);p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(u);p.setColor(0xff503723);c.drawRoundRect(x+5*u,y+6*u,x+w-5*u,y+h-6*u,4*u,4*u,p);
+            p.setColor(0xffc39a63);c.drawRoundRect(x+8*u,y+9*u,x+w-8*u,y+h-9*u,3*u,3*u,p);
+            for(int i=0;i<13;i++){float xx=x+w*(i+1)/14;p.setColor(i%2==0?0x28704c2c:0x20ffe0a1);Path grain=new Path();grain.moveTo(xx,y+12*u);grain.cubicTo(xx+4*u,y+h*.3f,xx-6*u,y+h*.7f,xx,y+h-12*u);c.drawPath(grain,p);}
+            c.save();c.translate(x,y);c.scale(w/180f,h/400f);ornament(c);c.restore();
+            p.setStyle(Paint.Style.FILL);p.setColor(0xff4d3421);float hx=left?x+w-14*u:x+14*u;
+            c.drawOval(hx-5*u,y+h*.57f-6*u,hx+5*u,y+h*.57f+32*u,p);p.setColor(0xffc5a269);
+            c.drawRoundRect(hx-2*u,y+h*.57f,hx+2*u,y+h*.57f+24*u,2*u,2*u,p);c.restore();
         }
+        private void ornament(Canvas c){
+            Path frame=new Path();frame.moveTo(25,344);frame.lineTo(25,75);frame.cubicTo(25,36,56,39,90,21);frame.cubicTo(124,39,155,36,155,75);frame.lineTo(155,344);frame.quadTo(90,376,25,344);carve(c,frame,2.8f);
+            Path arch=new Path();arch.moveTo(32,341);arch.lineTo(32,78);arch.cubicTo(32,43,57,48,90,30);arch.cubicTo(123,48,148,43,148,78);arch.lineTo(148,341);arch.quadTo(90,366,32,341);carve(c,arch,1.1f);
+            // Mirrored acanthus scrolls with relief highlights, framing a floral medallion.
+            for(int side:new int[]{-1,1}){
+                c.save();c.translate(90,0);c.scale(side,1);
+                Path vine=new Path();vine.moveTo(0,327);vine.cubicTo(61,311,16,277,35,252);vine.cubicTo(71,220,20,203,42,171);vine.cubicTo(69,130,17,111,28,73);vine.quadTo(32,57,43,62);vine.cubicTo(57,70,41,85,36,75);carve(c,vine,2.2f);
+                for(int j=0;j<5;j++){
+                    float yy=104+j*43;Path leaf=new Path();leaf.moveTo(34,yy+15);leaf.cubicTo(19,yy+7,8,yy+5,7,yy-10);leaf.cubicTo(20,yy-5,40,yy-4,34,yy+15);carve(c,leaf,1.5f);
+                    Path vein=new Path();vein.moveTo(12,yy-5);vein.quadTo(27,yy+2,34,yy+15);carve(c,vein,.8f);
+                }
+                c.restore();
+            }
+            c.save();c.translate(90,181);p.setStyle(Paint.Style.FILL);p.setColor(0xff855a35);c.drawCircle(0,0,31,p);
+            Path ring=new Path();ring.addCircle(0,0,31,Path.Direction.CW);carve(c,ring,2);ring.reset();ring.addCircle(0,0,27,Path.Direction.CW);carve(c,ring,.8f);
+            for(int i=0;i<8;i++){c.save();c.rotate(i*45);Path petal=new Path();petal.moveTo(0,-6);petal.cubicTo(-14,-12,-9,-25,0,-25);petal.cubicTo(9,-25,14,-12,0,-6);carve(c,petal,1.5f);c.restore();}
+            Path center=new Path();center.addCircle(0,0,6,Path.Direction.CW);carve(c,center,1.7f);c.restore();
+            Path crown=new Path();crown.moveTo(65,48);crown.quadTo(79,63,90,45);crown.quadTo(101,63,115,48);carve(c,crown,1.8f);
+            Path base=new Path();base.moveTo(66,335);base.quadTo(90,351,114,335);base.moveTo(73,340);base.quadTo(90,327,107,340);carve(c,base,1.4f);
+        }
+        private void carve(Canvas c,Path path,float width){
+            p.setStyle(Paint.Style.STROKE);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);p.setStrokeWidth(width+1);
+            c.save();c.translate(1,1.4f);p.setColor(0xffd1a96e);c.drawPath(path,p);c.restore();
+            p.setStrokeWidth(width);p.setColor(0xff553820);c.drawPath(path,p);p.setStyle(Paint.Style.FILL);
+        }
+
     }
     static final class Basket extends View {
         private final JSONObject doc;private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);

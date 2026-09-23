@@ -32,10 +32,9 @@ final class WardrobeScreen {
     private void doors(boolean value){doorsOpen=value;activity.getPreferences(0).edit().putBoolean("wardrobe_open",value).apply();refresh.run();}
     void render(LinearLayout body) {
         JSONObject doc=repo.wardrobe();
-        Ui.text(body,"A PLACE FOR EVERYTHING",10,Ui.ACCENT).setLetterSpacing(.13f);
         LinearLayout title=new LinearLayout(activity);title.setGravity(Gravity.CENTER_VERTICAL);body.addView(title);
         TextView heading=Ui.heading(title,"Wardrobe",29);heading.setTypeface(Typeface.create("serif",Typeface.NORMAL));heading.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
-        Ui.button(title,"+ Add",()->edit(null));Ui.button(title,"Settings",this::settings).setTextSize(12);
+        Ui.button(title,"+ Add",()->edit(null));Ui.button(title,"Shelves",this::shelves).setTextSize(12);
         LinearLayout tabs=Ui.chips(body);
         String[][] sections={{"available","Closet"},{"in_use","In Use"},{"laundry","Laundry"},{"outfits","Outfits"}};
         for(String[] s:sections) {
@@ -150,7 +149,9 @@ final class WardrobeScreen {
         });
     }
     private void edit(String id) {
-        JSONObject doc=repo.wardrobe(),item=id==null?new JSONObject():WardrobeRules.item(doc,id);Panel p=new Panel(id==null?"Add clothes":"Edit clothes");
+        JSONObject doc=repo.wardrobe();
+        if(WardrobeRules.list(WardrobeRules.state(doc),"categories").isEmpty()){toast("Create a shelf for your clothes first.");newShelf(null);return;}
+        JSONObject item=id==null?Json.of("color","#FFFFFF"):WardrobeRules.item(doc,id);Panel p=new Panel(id==null?"Add clothes":"Edit clothes");
         EditText name=p.input("Name",Json.text(item,"name"));
         List<String> categoryIds=new ArrayList<>(),names=new ArrayList<>(); for(JSONObject c:WardrobeRules.list(WardrobeRules.state(doc),"categories")){categoryIds.add(Json.text(c,"id"));names.add(Json.text(c,"name"));}
         Spinner categories=p.select("Category",names,Math.max(0,categoryIds.indexOf(id==null?category:Json.text(item,"category"))));
@@ -161,7 +162,7 @@ final class WardrobeScreen {
         Spinner hood=p.select("Hood",Arrays.asList("Match garment","With hood","Without hood"),Math.max(0,hoodValues.indexOf(item.optString("hood","auto"))));
         EditText colour=p.input("Colour · hex",item.optString("color","#FFFFFF")),colourName=p.input("Colour name",item.optString("color_name","White"));
         Runnable updatePreview=()->{
-            JSONObject sample=Json.of("category",categoryIds.get(categories.getSelectedItemPosition()),"shape",WardrobeRules.SHAPES.get(silhouette.getSelectedItemPosition()),"sleeve",WardrobeRules.SLEEVES.get(sleeves.getSelectedItemPosition()),"hood",hoodValues.get(hood.getSelectedItemPosition()));
+            JSONObject sample=Json.of("category",categoryIds.get(selectedIndex(categories,categoryIds.size())),"shape",WardrobeRules.SHAPES.get(selectedIndex(silhouette,WardrobeRules.SHAPES.size())),"sleeve",WardrobeRules.SLEEVES.get(selectedIndex(sleeves,WardrobeRules.SLEEVES.size())),"hood",hoodValues.get(selectedIndex(hood,hoodValues.size())));
             String shape=WardrobeRules.shape(doc,sample);sleeves.setEnabled(WardrobeRules.hasSleeves(shape));hood.setEnabled(WardrobeRules.hasSleeves(shape)||shape.equals("tank"));
             preview.update(shape,WardrobeRules.sleeve(doc,sample),WardrobeRules.hood(doc,sample),colour.getText().toString());
         };
@@ -173,8 +174,8 @@ final class WardrobeScreen {
         List<String> uses=Arrays.asList("home","outdoor","both"); Spinner purpose=p.select("Wear at",Arrays.asList("Home","Outdoor","Home & outdoor"),Math.max(0,uses.indexOf(item.optString("use","both"))));
         EditText quantity=p.input("Total quantity",id==null?"1":String.valueOf(WardrobeRules.count(item,"all")));quantity.setInputType(InputType.TYPE_CLASS_NUMBER);
         EditText note=p.input("Care notes · optional",Json.text(item,"note"));
-        p.action("Save clothes",()->{int n=Integer.parseInt(quantity.getText().toString());String cat=categoryIds.get(categories.getSelectedItemPosition()),u=uses.get(purpose.getSelectedItemPosition());
-            String shape=WardrobeRules.SHAPES.get(silhouette.getSelectedItemPosition()),sleeve=WardrobeRules.SLEEVES.get(sleeves.getSelectedItemPosition()),hoodValue=hoodValues.get(hood.getSelectedItemPosition());
+        p.action("Save clothes",()->{int n=Integer.parseInt(quantity.getText().toString());String cat=categoryIds.get(selectedIndex(categories,categoryIds.size())),u=uses.get(selectedIndex(purpose,uses.size()));
+            String shape=WardrobeRules.SHAPES.get(selectedIndex(silhouette,WardrobeRules.SHAPES.size())),sleeve=WardrobeRules.SLEEVES.get(selectedIndex(sleeves,WardrobeRules.SLEEVES.size())),hoodValue=hoodValues.get(selectedIndex(hood,hoodValues.size()));
             String itemName=name.getText().toString(),hex=colour.getText().toString().trim(),colourLabel=colourName.getText().toString(),notes=note.getText().toString();
             change(v->{
                 WardrobeRules.saveItem(v,id==null?"":id,itemName,cat,hex,colourLabel,u,notes,n);
@@ -184,14 +185,43 @@ final class WardrobeScreen {
         if(id!=null) p.action("Remove item",()->new AlertDialog.Builder(activity).setMessage("Remove this item from your wardrobe?").setNegativeButton("Cancel",null).setPositiveButton("Remove",(d,w)->change(v->WardrobeRules.removeItem(v,id),p.dialog)).show());
         p.show();
     }
+    private static int selectedIndex(Spinner spinner,int count){return Math.max(0,Math.min(count-1,spinner.getSelectedItemPosition()));}
+    private void shelves() {
+        JSONObject doc=repo.wardrobe();Panel p=new Panel("Your shelves");
+        p.action("+ Add shelf",()->newShelf(p.dialog));
+        for(JSONObject c:WardrobeRules.list(WardrobeRules.state(doc),"categories")) {
+            String id=Json.text(c,"id");p.action(Json.text(c,"name")+" · "+WardrobeRules.categoryCount(doc,id)+" pieces",()->{p.dialog.dismiss();editShelf(id);});
+        }
+        p.action("Laundry settings",()->{p.dialog.dismiss();settings();});p.show();
+    }
+    private void newShelf(AlertDialog parent) {
+        Panel p=new Panel("New shelf");EditText name=p.input("Shelf name","");
+        List<String> kinds=Arrays.asList("top","shirt","bottom","shorts","layer","one_piece","shoes","other");
+        Spinner shape=p.select("Default clothing shape",Arrays.asList("T-shirt / top","Shirt","Pants / jeans","Shorts","Jacket / layer","Dress / one piece","Shoes / footwear","Other / underwear"),0);
+        p.action("Add shelf",()->{String title=name.getText().toString(),kind=kinds.get(selectedIndex(shape,kinds.size()));
+            repo.wardrobe(v->WardrobeRules.category(v,title,kind),error->activity.runOnUiThread(()->{if(error.isEmpty()){p.dialog.dismiss();if(parent!=null)parent.dismiss();refresh.run();toast("Shelf added");}else toast(error);}));});p.show();
+    }
+    private void editShelf(String id) {
+        JSONObject doc=repo.wardrobe();String title=WardrobeRules.categoryName(doc,id);Panel p=new Panel(title+" shelf");EditText name=p.input("Shelf name",title);
+        p.action("Save shelf name",()->{String value=name.getText().toString();change(v->WardrobeRules.renameCategory(v,id,value),p.dialog);});
+        int count=WardrobeRules.categoryCount(doc,id);List<String> destinations=new ArrayList<>(),names=new ArrayList<>();
+        for(JSONObject c:WardrobeRules.list(WardrobeRules.state(doc),"categories"))if(!id.equals(Json.text(c,"id"))){destinations.add(Json.text(c,"id"));names.add(Json.text(c,"name"));}
+        Ui.text(p.fields,count==0?"This shelf is empty.":count+" pieces are on this shelf, including clothes in use or in laundry. Move them to another shelf when removing it.",14,Ui.MUTED);
+        Spinner target=count>0&&!destinations.isEmpty()?p.select("Move clothes to",names,0):null;
+        if(count>0&&destinations.isEmpty())p.action("+ Add another shelf first",()->newShelf(p.dialog));
+        else p.action("Delete shelf",()->{
+            String destination=target==null?"":destinations.get(selectedIndex(target,destinations.size()));
+            new AlertDialog.Builder(activity).setTitle("Delete "+title+" shelf?").setMessage(count==0?"Remove this empty shelf from the wardrobe?":"Move all its clothes to "+WardrobeRules.categoryName(doc,destination)+" and remove this shelf? Their availability and laundry status stay the same.")
+                .setNegativeButton("Cancel",null).setPositiveButton("Delete shelf",(dialog,which)->{
+                    repo.wardrobe(v->WardrobeRules.removeCategory(v,id,destination),error->activity.runOnUiThread(()->{if(error.isEmpty()){p.dialog.dismiss();if(category.equals(id)){category="all";search="";railX=0;}refresh.run();toast("Shelf removed");}else toast(error);}));
+                }).show();
+        });p.show();
+    }
     private void settings() {
         JSONObject doc=repo.wardrobe();Panel p=new Panel("Wardrobe settings");
         EditText threshold=p.input("Create laundry task at this many pieces · 0 = off",String.valueOf(WardrobeRules.state(doc).optInt("threshold",8)));threshold.setInputType(InputType.TYPE_CLASS_NUMBER);
         p.action("Save laundry setting",()->{int n=Integer.parseInt(threshold.getText().toString());if(n<0||n>1000)throw new IllegalArgumentException("Choose 0–1,000 pieces.");change(v->Json.put(WardrobeRules.state(v),"threshold",n),p.dialog);});
-        p.action("+ Add category",()->{Panel c=new Panel("New category");EditText name=c.input("Category name","");
-            List<String> kinds=Arrays.asList("top","shirt","bottom","shorts","layer","one_piece","shoes","other");
-            Spinner shape=c.select("Clothing shape",Arrays.asList("T-shirt / top","Shirt","Pants / jeans","Shorts","Jacket / layer","Dress / one piece","Shoes","Other"),0);
-            c.action("Add category",()->change(v->WardrobeRules.category(v,name.getText().toString(),kinds.get(shape.getSelectedItemPosition())),c.dialog));c.show();});
+        p.action("Manage shelves",()->{p.dialog.dismiss();shelves();});
         Ui.text(p.fields,"Your wardrobe is personal. Changes are saved on this phone first and sync with your account when connected.",13,Ui.MUTED);p.show();
     }
     private void outfits(LinearLayout body,JSONObject doc) {

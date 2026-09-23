@@ -54,6 +54,21 @@ public class NativeScreensTest {
         device.findObject(By.text("Projects")).click();assertTrue(device.wait(Until.hasObject(By.text("A more thoughtful home")),3000));shot(context,device,"03-projects");
         device.findObject(By.text("Calendar")).click();assertTrue(device.wait(Until.hasObject(By.text("Back to today")),3000));shot(context,device,"04-calendar");
         device.findObject(By.text("Wardrobe")).click();assertTrue(device.wait(Until.hasObject(By.text("Open wardrobe")),3000));shot(context,device,"05-wardrobe-closed");
+        // Regression: a brand-new garment has no colour yet; opening and typing must not crash.
+        device.findObject(By.text("+ Add")).click();assertTrue(device.wait(Until.hasObject(By.text("Add clothes")),3000));
+        device.findObject(By.desc("Name")).setText("Test cotton hoodie");
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().description("Garment shape"));
+        device.findObject(By.desc("Garment shape")).click();device.wait(Until.findObject(By.text("Hoodie")),3000).click();
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().description("Colour · hex"));
+        device.findObject(By.desc("Colour · hex")).setText("");device.waitForIdle();
+        device.findObject(By.desc("Colour · hex")).setText("#12");device.waitForIdle();
+        device.findObject(By.desc("Colour · hex")).setText("#526D83");
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().text("Save clothes"));
+        device.findObject(By.text("Save clothes")).click();device.waitForIdle();
+        long addDeadline=android.os.SystemClock.uptimeMillis()+5000;
+        while(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").size()!=10&&android.os.SystemClock.uptimeMillis()<addDeadline)android.os.SystemClock.sleep(50);
+        assertEquals(10,WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").size());
+        assertEquals("#526D83",Json.text(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").get(9),"color"));
         device.findObject(By.text("Open wardrobe")).click();assertTrue(device.wait(Until.hasObject(By.descStartsWith("Open T-shirts,")),3000));shot(context,device,"06-wardrobe-open");
         device.findObject(By.descStartsWith("Open T-shirts,")).click();assertTrue(device.wait(Until.hasObject(By.descStartsWith("White T-shirt,")),3000));shot(context,device,"07-clothes-rail");
         device.findObject(By.descStartsWith("White T-shirt,")).click();assertTrue(device.wait(Until.hasObject(By.text("Wear / take out")),3000));
@@ -90,7 +105,7 @@ public class NativeScreensTest {
         new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().text("Edit details & quantity"));
         device.findObject(By.text("Edit details & quantity")).click();
         new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().description("Garment shape"));
-        assertNotNull(device.findObject(By.desc("Garment shape")));shot(context,device,"13-edit-appearance");device.findObject(By.text("Close")).click();
+        assertNotNull(device.findObject(By.desc("Garment shape")));shot(context,device,"13-edit-appearance");device.findObject(By.res("android:id/button2")).click();
         // Completing a board task returns the exact load without any connection.
         store.changeWardrobe(space,account,repo.today(),d->{String item=Json.text(WardrobeRules.list(WardrobeRules.state(d),"items").get(0),"id");Json.put(WardrobeRules.state(d),"threshold",1);WardrobeRules.move(d,item,"in_use","laundry",1);});
         repo.changed();device.waitForIdle();device.findObject(By.textStartsWith("Laundry ·")).click();device.waitForIdle();shot(context,device,"14-laundry-basket");
@@ -98,7 +113,24 @@ public class NativeScreensTest {
         String task=Json.text(WardrobeRules.activeBatch(repo.wardrobe()),"task_id");assertNotNull(store.get("tasks",task));
         store.saveTaskAndWardrobe(Json.merge(store.get("tasks",task).body,Json.of("completed_at",Json.now())));
         assertEquals(0,WardrobeRules.total(repo.wardrobe(),"laundry"));assertEquals(3,WardrobeRules.count(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").get(0),"available"));
+        device.wait(Until.findObject(By.text("Shelves")),5000).click();device.wait(Until.findObject(By.text("+ Add shelf")),3000).click();
+        device.wait(Until.findObject(By.desc("Shelf name")),3000).setText("Travel clothes");device.findObject(By.text("Add shelf")).click();device.waitForIdle();
+        addDeadline=android.os.SystemClock.uptimeMillis()+5000;
+        while(!hasShelf(repo,"Travel clothes")&&android.os.SystemClock.uptimeMillis()<addDeadline)android.os.SystemClock.sleep(50);
+        assertTrue(hasShelf(repo,"Travel clothes"));
+        device.wait(Until.findObject(By.text("Shelves")),5000).click();
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().textStartsWith("Travel clothes ·"));
+        device.findObject(By.textStartsWith("Travel clothes ·")).click();device.wait(Until.findObject(By.text("Delete shelf")),3000).click();
+        device.wait(Until.findObject(By.res("android:id/button1")),3000).click();device.waitForIdle();
+        addDeadline=android.os.SystemClock.uptimeMillis()+5000;
+        while(hasShelf(repo,"Travel clothes")&&android.os.SystemClock.uptimeMillis()<addDeadline)android.os.SystemClock.sleep(50);
+        assertFalse(hasShelf(repo,"Travel clothes"));
+        device.findObject(By.textStartsWith("Closet ·")).click();
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().text("Close doors"));
+        device.findObject(By.text("Close doors")).click();device.waitForIdle();shot(context,device,"15-carved-doors");
+
     }
+    private boolean hasShelf(TbftRepository repo,String name){return WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"categories").stream().anyMatch(c->name.equals(Json.text(c,"name")));}
     private void shot(Context c,UiDevice device,String name) throws Exception {
         device.waitForIdle();InstrumentationRegistry.getInstrumentation().waitForIdleSync();android.os.SystemClock.sleep(300);
         File dir=new File(c.getExternalFilesDir(null),"screenshots");assertTrue(dir.exists()||dir.mkdirs());File shot=new File(dir,name+".png");assertTrue(device.takeScreenshot(shot));
