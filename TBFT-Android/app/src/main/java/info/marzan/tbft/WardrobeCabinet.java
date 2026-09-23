@@ -42,7 +42,7 @@ final class WardrobeCabinet extends FrameLayout {
         }
         if(!open) {
             shelves.setVisibility(INVISIBLE);
-            Wood doors=new Wood(c,true);addView(doors,new LayoutParams(-1,-1));
+            HeritageDoors doors=new HeritageDoors(c,false);addView(doors,new LayoutParams(-1,-1));
             LinearLayout invitation=Ui.column(c);invitation.setGravity(Gravity.CENTER);invitation.setPadding(Ui.dp(c,25),0,Ui.dp(c,25),0);
             Button button=Ui.button(invitation,"Open wardrobe",()->{});button.setBackground(Ui.shape(c,0xfff5ecd9,24));
             LayoutParams label=new LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);label.bottomMargin=Ui.dp(c,32);addView(invitation,label);
@@ -50,7 +50,7 @@ final class WardrobeCabinet extends FrameLayout {
                 button.setEnabled(false);invitation.setVisibility(GONE);shelves.setVisibility(VISIBLE);shelves.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
                 if(!ValueAnimator.areAnimatorsEnabled()){opened.run();return;}
                 animator=ValueAnimator.ofFloat(0,1);animator.setDuration(420);animator.setInterpolator(new DecelerateInterpolator());
-                animator.addUpdateListener(a->{doors.open=(float)a.getAnimatedValue();doors.invalidate();});
+                animator.addUpdateListener(a->doors.setOpen((float)a.getAnimatedValue()));
                 animator.addListener(new android.animation.AnimatorListenerAdapter(){boolean cancelled;@Override public void onAnimationCancel(android.animation.Animator a){cancelled=true;}@Override public void onAnimationEnd(android.animation.Animator a){if(!cancelled)opened.run();}});animator.start();
             });
         }

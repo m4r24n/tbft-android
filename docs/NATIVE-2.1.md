@@ -12,6 +12,7 @@ The native organiser now uses the website's paper, sage, brass and ink palette. 
 - Clothing changes and board-task creation commit in one local SQLite transaction. Network errors retain pending changes.
 - Supabase migration `20260921205335_wardrobe_native_v1.sql` provides owner-only RLS, version-checked writes and reciprocal task-completion triggers. The wardrobe document is shared across signed-in Android devices. Website Wardrobe screens remain a later step.
 - Concurrent wardrobe edits require explicit review. If laundry history changed remotely, preserve the local backup and use the server copy before reapplying desired clothing changes. Completed laundry history is immutable.
+- Wardrobe compartments now browse with horizontal touch gestures. Its matching Library cabinet stores books, custom shelves, format, notes, reading status and progress in the same offline-first Life collection.
 
 ## Downloads
 

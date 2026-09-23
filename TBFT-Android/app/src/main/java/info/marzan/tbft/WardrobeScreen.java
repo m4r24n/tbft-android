@@ -17,20 +17,26 @@ final class WardrobeScreen {
     private final TbftRepository repo;
     private final Runnable refresh;
     private String section="available", category="all", use="all", search="";
+    private String room="wardrobe";
     private int shelfPage,railX;
     private boolean doorsOpen;
     private LinearLayout results;
+    private final LibraryScreen library;
     WardrobeScreen(Activity a,TbftRepository r,Runnable refresh) {
-        activity=a;repo=r;this.refresh=refresh;doorsOpen=a.getPreferences(0).getBoolean("wardrobe_open",false);
+        activity=a;repo=r;this.refresh=refresh;doorsOpen=a.getPreferences(0).getBoolean("wardrobe_open",false);library=new LibraryScreen(a,r,refresh);
     }
     private int dp(int n) { return Ui.dp(activity,n); }
-    String location(){return section+":"+category;}
-    void saveState(Bundle b){b.putString("wardrobe_section",section);b.putString("wardrobe_category",category);b.putString("wardrobe_use",use);b.putString("wardrobe_search",search);b.putInt("wardrobe_page",shelfPage);b.putInt("wardrobe_rail",railX);}
-    void restoreState(Bundle b){section=b.getString("wardrobe_section","available");category=b.getString("wardrobe_category","all");use=b.getString("wardrobe_use","all");search=b.getString("wardrobe_search","");shelfPage=b.getInt("wardrobe_page",0);railX=b.getInt("wardrobe_rail",0);}
-    boolean back(){if(!category.equals("all")){category="all";search="";railX=0;refresh.run();return true;}if(!section.equals("available")){navigate("available");return true;}return false;}
+    String location(){return room+":"+(room.equals("library")?library.location():section+":"+category+":"+shelfPage);}
+    void saveState(Bundle b){b.putString("life_room",room);b.putString("wardrobe_section",section);b.putString("wardrobe_category",category);b.putString("wardrobe_use",use);b.putString("wardrobe_search",search);b.putInt("wardrobe_page",shelfPage);b.putInt("wardrobe_rail",railX);library.saveState(b);}
+    void restoreState(Bundle b){room=b.getString("life_room","wardrobe");section=b.getString("wardrobe_section","available");category=b.getString("wardrobe_category","all");use=b.getString("wardrobe_use","all");search=b.getString("wardrobe_search","");shelfPage=b.getInt("wardrobe_page",0);railX=b.getInt("wardrobe_rail",0);library.restoreState(b);}
+    boolean back(){if(room.equals("library"))return library.back();if(!category.equals("all")){category="all";search="";railX=0;refresh.run();return true;}if(!section.equals("available")){navigate("available");return true;}return false;}
     private void navigate(String value){section=value;category="all";search="";railX=0;refresh.run();}
     private void doors(boolean value){doorsOpen=value;activity.getPreferences(0).edit().putBoolean("wardrobe_open",value).apply();refresh.run();}
     void render(LinearLayout body) {
+        LinearLayout roomTabs=new LinearLayout(activity);body.addView(roomTabs);
+        Button wardrobe=Ui.button(roomTabs,"Wardrobe",()->{room="wardrobe";refresh.run();});wardrobe.setLayoutParams(new LinearLayout.LayoutParams(0,dp(50),1));Ui.selected(wardrobe,room.equals("wardrobe"));
+        Button books=Ui.button(roomTabs,"Library",()->{room="library";refresh.run();});books.setLayoutParams(new LinearLayout.LayoutParams(0,dp(50),1));Ui.selected(books,room.equals("library"));
+        if(room.equals("library")){library.render(body);return;}
         JSONObject doc=repo.wardrobe();
         LinearLayout title=new LinearLayout(activity);title.setGravity(Gravity.CENTER_VERTICAL);body.addView(title);
         TextView heading=Ui.heading(title,"Wardrobe",29);heading.setTypeface(Typeface.create("serif",Typeface.NORMAL));heading.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
@@ -69,20 +75,17 @@ final class WardrobeScreen {
             Ui.selected(Ui.button(uses,f[1],()->{use=f[0];railX=0;refresh.run();}),use.equals(f[0]));
     }
     private void cabinet(LinearLayout body,JSONObject doc){
-        if(doorsOpen){uses(body);Ui.text(body,"Open a compartment to browse its clothes.",13,Ui.MUTED);}
+        if(doorsOpen){uses(body);Ui.text(body,"Swipe sideways through the wardrobe, then open a compartment.",13,Ui.MUTED);}
         else Ui.text(body,WardrobeRules.total(doc,"available")+" ready to wear · tucked away, together.",13,Ui.MUTED);
-        List<JSONObject> all=WardrobeRules.list(WardrobeRules.state(doc),"categories");int pages=Math.max(1,(all.size()+5)/6);shelfPage=Math.min(shelfPage,pages-1);
-        int start=shelfPage*6;
-        WardrobeCabinet cabinet=new WardrobeCabinet(activity,doc,all.subList(start,Math.min(all.size(),start+6)),use,doorsOpen,
-            id->{category=id;search="";railX=0;refresh.run();},()->doors(true));
-        body.addView(cabinet,new LinearLayout.LayoutParams(-1,dp(365)));
-        if(doorsOpen){
-            LinearLayout navigation=new LinearLayout(activity);navigation.setGravity(Gravity.CENTER_VERTICAL);body.addView(navigation);
-            Button previous=Ui.button(navigation,"‹",()->{shelfPage--;refresh.run();});previous.setContentDescription("Previous compartments");previous.setEnabled(shelfPage>0);
-            TextView number=Ui.text(navigation,"Compartments "+(shelfPage+1)+" / "+pages,12,Ui.MUTED);number.setGravity(Gravity.CENTER);number.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
-            Button next=Ui.button(navigation,"›",()->{shelfPage++;refresh.run();});next.setContentDescription("Next compartments");next.setEnabled(shelfPage<pages-1);
-            Ui.button(navigation,"Close doors",()->doors(false)).setTextSize(12);
-        }
+        List<JSONObject> all=WardrobeRules.list(WardrobeRules.state(doc),"categories");int pages=Math.max(1,(all.size()+5)/6),pageWidth=activity.getResources().getDisplayMetrics().widthPixels-dp(28);
+        if(!doorsOpen){WardrobeCabinet cabinet=new WardrobeCabinet(activity,doc,all.subList(0,Math.min(all.size(),6)),use,false,id->{category=id;search="";railX=0;refresh.run();},()->doors(true));body.addView(cabinet,new LinearLayout.LayoutParams(-1,dp(365)));basket(body,doc,true);return;}
+        HorizontalScrollView scroll=new HorizontalScrollView(activity);scroll.setHorizontalScrollBarEnabled(false);scroll.setFillViewport(true);scroll.setContentDescription("Wardrobe compartments. Swipe horizontally to browse.");
+        LinearLayout pagesRow=new LinearLayout(activity);scroll.addView(pagesRow);body.addView(scroll,new LinearLayout.LayoutParams(-1,dp(365)));
+        for(int page=0;page<pages;page++){int start=page*6;WardrobeCabinet cabinet=new WardrobeCabinet(activity,doc,all.subList(start,Math.min(all.size(),start+6)),use,true,id->{category=id;search="";railX=0;refresh.run();},()->{});pagesRow.addView(cabinet,new LinearLayout.LayoutParams(pageWidth,dp(365)));}
+        TextView indicator=Ui.text(body,"Swipe compartments  ·  1 / "+pages,12,Ui.MUTED);indicator.setGravity(Gravity.CENTER);
+        int saved=Math.min(shelfPage,Math.max(0,(pages-1)*pageWidth));scroll.post(()->scroll.scrollTo(saved,0));
+        scroll.setOnScrollChangeListener((v,x,y,oldX,oldY)->{shelfPage=x;int page=Math.min(pages-1,Math.max(0,Math.round((float)x/pageWidth)));indicator.setText("Swipe compartments  ·  "+(page+1)+" / "+pages);});
+        Ui.button(body,"Close wardrobe doors",()->doors(false)).setTextSize(12);
         basket(body,doc,true);
     }
     private void basket(LinearLayout body,JSONObject doc,boolean clickable){

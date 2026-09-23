@@ -25,6 +25,7 @@ public class NativeScreensTest {
         String account="cd820422-7a93-43f7-8c9e-7b67e620af66",partner="bad21cf5-83d4-4c6a-88c9-d3d098082757",space="053dbac3-7105-4423-a9a4-4f21d3a5e583",project=UUID.randomUUID().toString();
         context.getSharedPreferences("tbft_session_v1",Context.MODE_PRIVATE).edit().clear().putString("account",account).commit();
         context.getSharedPreferences("MainActivity",Context.MODE_PRIVATE).edit().putBoolean("wardrobe_open",false).commit();
+        context.getSharedPreferences("MainActivity",Context.MODE_PRIVATE).edit().putBoolean("library_open",false).commit();
         TbftRepository repo=TbftRepository.get(context);OfflineStore store=repo.store();store.setMeta("workspace",space);store.setMeta("core_sync","fixture");
         store.ingest("workspaces",Collections.singletonList(Json.of("id",space,"name","Our workspace","timezone","Europe/Berlin","rollover_hour",6)));
         store.ingest("profiles",Arrays.asList(Json.of("id",account,"display_name","Marzan"),Json.of("id",partner,"display_name","Partner")));
@@ -45,6 +46,9 @@ public class NativeScreensTest {
             WardrobeRules.appearance(d,Json.text(items.get(5),"id"),"tshirt","long","no");WardrobeRules.appearance(d,Json.text(items.get(6),"id"),"tshirt","short","yes");
             WardrobeRules.saveItem(d,"","Cotton briefs","underwear","#384555","Navy","both","",3);
             WardrobeRules.saveItem(d,"","Everyday tank","tanks","#F5F1E5","Cream","home","",2);
+            LibraryRules.saveBook(d,"","The Design of Everyday Things","Don Norman","learning","paper","reading",42,"#A38B57","Useful design principles.");
+            LibraryRules.saveBook(d,"","The Little Prince","Antoine de Saint-Exupéry","fiction","paper","finished",100,"#47647A","");
+            LibraryRules.saveBook(d,"","Supply Chain Management","Sunil Chopra","work","ebook","unread",0,"#607D68","");
         });
         InstrumentationRegistry.getInstrumentation().startActivitySync(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();device.waitForIdle();
@@ -96,8 +100,7 @@ public class NativeScreensTest {
         device.findObject(By.text("Browser")).click();assertTrue(device.wait(Until.hasObject(By.text("Website address")),5000));shot(context,device,"10-browser");
         device.pressBack();device.waitForIdle();
         device.findObject(By.textStartsWith("Closet ·")).click();device.waitForIdle();
-        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().description("Next compartments"));
-        device.findObject(By.desc("Next compartments")).click();device.waitForIdle();
+        UiScrollable wardrobePages=new UiScrollable(new UiSelector().descriptionStartsWith("Wardrobe compartments"));wardrobePages.setAsHorizontalList();wardrobePages.scrollForward();device.waitForIdle();
         assertNotNull(device.findObject(By.descStartsWith("Open Underwear,")));assertNotNull(device.findObject(By.descStartsWith("Open Tank tops,")));
         shot(context,device,"11-more-compartments");
         device.findObject(By.descStartsWith("Open Tank tops,")).click();assertTrue(device.wait(Until.hasObject(By.descStartsWith("Everyday tank,")),3000));shot(context,device,"12-tank-tops");
@@ -126,8 +129,13 @@ public class NativeScreensTest {
         while(hasShelf(repo,"Travel clothes")&&android.os.SystemClock.uptimeMillis()<addDeadline)android.os.SystemClock.sleep(50);
         assertFalse(hasShelf(repo,"Travel clothes"));
         device.findObject(By.textStartsWith("Closet ·")).click();
-        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().text("Close doors"));
-        device.findObject(By.text("Close doors")).click();device.waitForIdle();shot(context,device,"15-carved-doors");
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().text("Close wardrobe doors"));
+        device.findObject(By.text("Close wardrobe doors")).click();device.waitForIdle();shot(context,device,"15-carved-doors");
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollToBeginning(20);device.waitForIdle();
+        device.findObject(By.text("Library")).click();assertTrue(device.wait(Until.hasObject(By.text("Open library")),3000));shot(context,device,"16-library-closed");
+        device.findObject(By.text("Open library")).click();assertTrue(device.wait(Until.hasObject(By.descStartsWith("Open Fiction,")),3000));shot(context,device,"17-library-open");
+        device.findObject(By.descStartsWith("Open Learning,")).click();assertTrue(device.wait(Until.hasObject(By.descStartsWith("The Design of Everyday Things,")),3000));shot(context,device,"18-library-shelf");
+        device.findObject(By.descStartsWith("The Design of Everyday Things,")).click();assertTrue(device.wait(Until.hasObject(By.text("Edit book")),3000));device.findObject(By.res("android:id/button2")).click();
 
     }
     private boolean hasShelf(TbftRepository repo,String name){return WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"categories").stream().anyMatch(c->name.equals(Json.text(c,"name")));}
