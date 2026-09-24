@@ -73,6 +73,7 @@ public class NativeScreensTest {
         while(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").size()!=10&&android.os.SystemClock.uptimeMillis()<addDeadline)android.os.SystemClock.sleep(50);
         assertEquals(10,WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").size());
         assertEquals("#526D83",Json.text(WardrobeRules.list(WardrobeRules.state(repo.wardrobe()),"items").get(9),"color"));
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().text("Open wardrobe"));
         device.findObject(By.text("Open wardrobe")).click();assertTrue(device.wait(Until.hasObject(By.descStartsWith("Open T-shirts,")),3000));shot(context,device,"06-wardrobe-open");
         device.findObject(By.descStartsWith("Open T-shirts,")).click();assertTrue(device.wait(Until.hasObject(By.descStartsWith("White T-shirt,")),3000));shot(context,device,"07-clothes-rail");
         device.findObject(By.descStartsWith("White T-shirt,")).click();assertTrue(device.wait(Until.hasObject(By.text("Wear / take out")),3000));
