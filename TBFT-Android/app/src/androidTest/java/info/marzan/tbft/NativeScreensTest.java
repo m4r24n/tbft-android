@@ -112,7 +112,9 @@ public class NativeScreensTest {
         assertNotNull(device.findObject(By.desc("Garment shape")));shot(context,device,"13-edit-appearance");device.findObject(By.res("android:id/button2")).click();
         // Completing a board task returns the exact load without any connection.
         store.changeWardrobe(space,account,repo.today(),d->{String item=Json.text(WardrobeRules.list(WardrobeRules.state(d),"items").get(0),"id");Json.put(WardrobeRules.state(d),"threshold",1);WardrobeRules.move(d,item,"in_use","laundry",1);});
-        repo.changed();device.waitForIdle();device.findObject(By.textStartsWith("Laundry ·")).click();device.waitForIdle();shot(context,device,"14-laundry-basket");
+        repo.changed();device.waitForIdle();
+        new UiScrollable(new UiSelector().className("android.widget.ScrollView")).scrollIntoView(new UiSelector().textStartsWith("Laundry ·"));
+        device.findObject(By.textStartsWith("Laundry ·")).click();device.waitForIdle();shot(context,device,"14-laundry-basket");
         assertTrue(device.wait(Until.hasObject(By.text("Laundry finished · return clothes")),3000));
         String task=Json.text(WardrobeRules.activeBatch(repo.wardrobe()),"task_id");assertNotNull(store.get("tasks",task));
         store.saveTaskAndWardrobe(Json.merge(store.get("tasks",task).body,Json.of("completed_at",Json.now())));
