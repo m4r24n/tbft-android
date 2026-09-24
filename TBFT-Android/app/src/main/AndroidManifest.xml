@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission android:name="${applicationId}.permission.LOCAL_UPDATES" android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.permission.LOCAL_UPDATES" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:hardwareAccelerated="true"
-        android:label="TBFT"
+        android:label="@string/app_name"
         android:icon="@drawable/ic_launcher"
         android:theme="@style/AppTheme">
 
@@ -21,6 +24,16 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".BrowserActivity" android:exported="false" android:process=":browser" />
+        <service android:name=".SyncService" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true" />
+        <receiver android:name=".LocalClockReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <receiver
             android:name=".TbftWidgetProvider"
             android:exported="false">
