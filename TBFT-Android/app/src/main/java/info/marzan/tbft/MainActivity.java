@@ -76,11 +76,11 @@ public class MainActivity extends Activity {
                     dp(14) + insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()); return insets;
         });
         LinearLayout header = new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand = new TextView(this); brand.setText("TBFT  /"); brand.setLetterSpacing(.1f); brand.setTextColor(INK); brand.setTextSize(22); brand.setTypeface(null, Typeface.BOLD);
+        TextView brand = new TextView(this); brand.setText("TBFT  //  FIELD UNIT"); brand.setLetterSpacing(.08f); brand.setTextColor(INK); brand.setTextSize(18); brand.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
         button(header, "Browser", () -> startActivity(new Intent(this, BrowserActivity.class)));
         page.addView(header);
-        sync = text(page, repo.summary(), 12, MUTED); sync.setPadding(0,dp(8),0,dp(8)); sync.setOnClickListener(v -> queue());
+        sync = text(page, "● LOCAL CACHE  //  "+repo.summary(), 11, ACCENT); sync.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);sync.setPadding(0,dp(8),0,dp(8)); sync.setOnClickListener(v -> queue());
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true);
         contentScroll = scroll;
         body = column(); body.setPadding(0, dp(10), 0, dp(20)); scroll.addView(body);
@@ -109,13 +109,13 @@ public class MainActivity extends Activity {
     }
     private void board(String selected, boolean calendar) {
         if (!calendar) {
-            text(body,"THE DAILY BOARD",11,ACCENT).setLetterSpacing(.15f);
+            terminalLabel("01 / DAILY OPERATIONS");
             title("Today",LocalDate.parse(selected).format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM")));
             int remaining=0,done=0;
             for(OfflineStore.Record t:repo.rows("tasks")) if(repo.vault.account().equals(Json.text(t.body,"owner_user_id")) && BoardRules.appears(t.body,selected,repo.timezone(),repo.rollover(),Instant.now())) { if(Json.text(t.body,"completed_at").isEmpty())remaining++;else done++; }
             LinearLayout summary=card(body); summary.setBackground(Ui.shape(this,Ui.SAGE,18));
             text(summary,remaining+" to do   ·   "+done+" completed",18,INK).setTypeface(null,Typeface.BOLD);
-            text(summary,"One thing at a time.",13,MUTED);
+            text(summary,"ACTIVE LOADOUT  //  one thing at a time",12,MUTED).setTypeface(Typeface.MONOSPACE,Typeface.NORMAL);
         } else text(body,LocalDate.parse(selected).format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM")),20,INK).setTypeface(null,Typeface.BOLD);
         button(body, "+ Add task", () -> task(null, "", "", repo.vault.account(), selected));
         List<String> owners = new ArrayList<>(); owners.add(repo.vault.account());
@@ -151,7 +151,7 @@ public class MainActivity extends Activity {
     }
     private String pending(OfflineStore.Record r) { return !r.error.isEmpty() ? " · Needs review" : r.dirty ? " · Saved on device" : ""; }
     private void projects() {
-        title("Projects", "Progress, next actions, and everything belonging to a project.");
+        terminalLabel("02 / MISSIONS");title("Projects", "Objectives, next actions and field progress.");
         button(body, "+ New project", () -> editProject(null));
         int count = 0;
         for (OfflineStore.Record r : repo.rows("projects")) if (Json.text(r.body,"deleted_at").isEmpty()) {
@@ -173,7 +173,7 @@ public class MainActivity extends Activity {
         String selected=date.isEmpty()?repo.today():date;
         YearMonth shown; try { shown=YearMonth.parse(month.isEmpty()?selected.substring(0,7):month); } catch(Exception e){shown=YearMonth.now();}
         final YearMonth current=shown;
-        title("Calendar","A little perspective on your days.");
+        terminalLabel("04 / FIELD LOG");title("Calendar","Recorded days, deadlines and forward planning.");
         LinearLayout controls=new LinearLayout(this);
         button(controls,"‹",()->{month=current.minusMonths(1).toString();render();}).setContentDescription("Previous month");
         TextView label=text(controls,current.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")),18,INK); label.setGravity(Gravity.CENTER);
@@ -224,16 +224,17 @@ public class MainActivity extends Activity {
         }
     }
     private void more() {
-        title(moreSection.isEmpty()?"Your space":moreSection,moreSection.isEmpty()?"A place for everything. Open only what you need.":"");
+        terminalLabel(moreSection.isEmpty()?"05 / UTILITY BAY":"UTILITY BAY / "+moreSection.toUpperCase(Locale.ROOT));
+        title(moreSection.isEmpty()?"Your space":moreSection,moreSection.isEmpty()?"Offline instruments. Open only what the situation needs.":"");
         if(moreSection.isEmpty()){
             menuCount=0;
-            menu("Workspace","People, timezone and daily rhythm",this::settings);
-            menu("Hourly voice · scheduled",String.join(" · ",TaskAnnouncements.times(this)),()->{moreSection="Task announcements";render();});
-            menu("Archive","Finished chapters, ready to restore",()->{moreSection="Archive";render();});
-            menu("Files","Project documents and links",()->{moreSection="Files";render();});
-            menu("Activity","Recent changes in your workspace",()->{moreSection="Activity";render();});
-            menu("Sync & backup","Connection, pending changes and local backup",()->{moreSection="Sync & backup";render();});
-            menu("About","App version and available features",()->{moreSection="About";render();});return;
+            menu("Workspace","Crew, timezone and operating rhythm",this::settings);
+            menu("Hourly voice · scheduled","Field broadcast · "+String.join(" · ",TaskAnnouncements.times(this)),()->{moreSection="Task announcements";render();});
+            menu("Archive","Secured records, ready to restore",()->{moreSection="Archive";render();});
+            menu("Files","Documents, references and maps",()->{moreSection="Files";render();});
+            menu("Activity","Local operations log",()->{moreSection="Activity";render();});
+            menu("Sync & backup","Relay status and local recovery",()->{moreSection="Sync & backup";render();});
+            menu("About","Field unit specification",()->{moreSection="About";render();});return;
         }
         button(body,"‹ Your space",()->{moreSection="";render();});
         switch(moreSection){
@@ -241,15 +242,17 @@ public class MainActivity extends Activity {
                 LinearLayout voice=card(body);boolean enabled=TaskAnnouncements.enabled(this);
                 AnnouncementClockView clockArt=new AnnouncementClockView(this,TaskAnnouncements.times(this));
                 voice.addView(clockArt,new LinearLayout.LayoutParams(-1,dp(150)));
+                text(voice,"FIELD BROADCAST UNIT",11,ACCENT).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
                 text(voice,enabled?"Announcements are on":"Announcements are off",18,INK).setTypeface(null,Typeface.BOLD);
-                text(voice,"Choose quiet moments that suit your day. Uses tasks saved on this phone and works offline.",14,MUTED);
+                text(voice,enabled?"AUTO BRIEFING // ARMED":"AUTO BRIEFING // SILENT",11,enabled?ACCENT:Ui.BRASS).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+                text(voice,"Incoming radio-style status reports from TBFT base. Connection tone, operational brief and sign-off—all generated on this device.",14,MUTED);
                 for(String time:TaskAnnouncements.times(this)){
                     LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);voice.addView(row);
                     TextView label=text(row,time,18,INK);label.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);label.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
                     button(row,"Remove",()->{if(!TaskAnnouncements.removeTime(this,time))toast("Keep at least one announcement time.");render();});
                 }
-                button(voice,"+ Tune another time",this::announcementTime);
-                button(voice,enabled?"Turn off announcements":"Turn on announcements",()->{TaskAnnouncements.setEnabled(this,!enabled);render();});
+                button(voice,"+ Tune another preset",this::announcementTime);
+                button(voice,enabled?"Disarm auto briefing":"Arm auto briefing",()->{TaskAnnouncements.setEnabled(this,!enabled);render();});
                 button(voice,"Speak remaining tasks now",()->{
                     if(repo.remainingTaskTitles().isEmpty())toast("No remaining tasks to announce.");
                     else TaskAnnouncements.speakNow(this);
@@ -274,13 +277,13 @@ public class MainActivity extends Activity {
     private void menu(String title,String subtitle,Runnable action){
         if(menuCount++%2==0){moreRow=new LinearLayout(this);moreRow.setBaselineAligned(false);body.addView(moreRow);}
         LinearLayout c=card(moreRow);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(144),1);lp.setMargins(dp(3),dp(5),dp(3),dp(5));c.setLayoutParams(lp);
-        text(c,title+"  ›",17,INK).setTypeface(null,Typeface.BOLD);text(c,subtitle,13,MUTED);
+        text(c,title.toUpperCase(Locale.ROOT)+"  ›",15,INK).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);text(c,subtitle,12,MUTED);
         c.setOnClickListener(v->action.run());c.setFocusable(true);c.setContentDescription(title+", "+subtitle);
     }
     private void announcementTime(){
         final int[] value={8,0};
         LinearLayout panel=column();panel.setPadding(dp(22),dp(18),dp(22),dp(8));
-        text(panel,"TURN THE KNOBS",11,ACCENT).setLetterSpacing(.15f);
+        text(panel,"FIELD CHANNEL / TIME PRESET",11,ACCENT).setLetterSpacing(.12f);
         TextView display=text(panel,"08:00",42,Color.rgb(244,174,65));display.setGravity(Gravity.CENTER);display.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
         display.setBackground(Ui.shape(this,Color.rgb(34,32,27),14));display.setPadding(dp(10),dp(18),dp(10),dp(18));
         LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER);panel.addView(controls);
@@ -290,8 +293,8 @@ public class MainActivity extends Activity {
         radioKnob(controls,"−\nMIN",()->{value[1]=(value[1]+55)%60;update.run();});
         radioKnob(controls,"+\nMIN",()->{value[1]=(value[1]+5)%60;update.run();});
         text(panel,"Minutes tune in five-minute steps.",12,MUTED).setGravity(Gravity.CENTER);
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Tune announcement time").setView(panel).setNegativeButton("Cancel",null)
-                .setPositiveButton("Save",null).create();
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Tune broadcast preset").setView(panel).setNegativeButton("Cancel",null)
+                .setPositiveButton("Lock preset",null).create();
         dialog.setOnShowListener(x->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{TaskAnnouncements.addTime(this,value[0],value[1]);dialog.dismiss();render();}));dialog.show();
     }
     private void radioKnob(LinearLayout parent,String label,Runnable action){
@@ -299,6 +302,7 @@ public class MainActivity extends Activity {
         knob.setBackground(Ui.shape(this,Color.rgb(82,70,59),100));knob.setOnClickListener(v->action.run());
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(68),1);lp.setMargins(dp(4),dp(14),dp(4),dp(10));parent.addView(knob,lp);
     }
+    private void terminalLabel(String value){TextView code=text(body,value,11,ACCENT);code.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);code.setLetterSpacing(.12f);}
     private void files(String project) {
         int count = 0;
         for (OfflineStore.Record r : repo.rows("project_files")) if (Json.text(r.body,"deleted_at").isEmpty() && (project.isEmpty() || project.equals(Json.text(r.body,"project_id")))) {

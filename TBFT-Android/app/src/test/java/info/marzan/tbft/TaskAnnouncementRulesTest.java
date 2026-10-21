@@ -29,6 +29,6 @@ public class TaskAnnouncementRulesTest {
     @Test public void longBoardIsSummarised(){
         List<String> tasks=Arrays.asList("One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten");
         String words=TaskAnnouncementRules.speech(tasks);
-        assertTrue(words.startsWith("You have 10 tasks remaining."));assertTrue(words.endsWith("And 2 more."));assertFalse(words.contains("Nine"));
+        assertTrue(words.contains("Operational board shows 10 tasks remaining."));assertTrue(words.endsWith("Base out."));assertTrue(words.contains("And 2 more."));assertFalse(words.contains("Nine"));
     }
 }

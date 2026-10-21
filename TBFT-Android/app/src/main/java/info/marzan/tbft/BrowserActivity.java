@@ -34,13 +34,14 @@ public class BrowserActivity extends Activity {
             v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
                     insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()); return insets;
         });
+        TextView unit=new TextView(this);unit.setText("06 / SIGNAL RECEIVER");unit.setTextColor(Ui.ACCENT);unit.setTypeface(android.graphics.Typeface.MONOSPACE,android.graphics.Typeface.BOLD);unit.setTextSize(11);unit.setLetterSpacing(.12f);unit.setPadding(16,10,16,6);root.addView(unit);
         LinearLayout controls = new LinearLayout(this);
         button(controls, "Close", this::closeBrowser); button(controls, "‹", () -> { if (web.canGoBack()) web.goBack(); });
         button(controls, "›", () -> { if (web.canGoForward()) web.goForward(); });
         button(controls, "Reload", () -> web.reload());
         root.addView(controls);
         LinearLayout location = new LinearLayout(this);
-        address = new EditText(this); address.setSingleLine(true); address.setTextColor(Ui.INK);
+        address = new EditText(this); address.setSingleLine(true); address.setTextColor(Ui.INK);address.setBackground(Ui.shape(this,Ui.DARK,4));address.setPadding(14,8,14,8);
         address.setHintTextColor(Ui.MUTED); address.setHint("Website address");
         address.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
         address.setImeOptions(EditorInfo.IME_ACTION_GO);
@@ -48,7 +49,7 @@ public class BrowserActivity extends Activity {
         location.addView(address, new LinearLayout.LayoutParams(0, -2, 1));
         button(location, "Go", this::navigate); root.addView(location);
         status = new TextView(this); status.setTextColor(Ui.MUTED); status.setPadding(16, 8, 16, 8);
-        status.setText("Enter a website. Close returns to your organiser."); root.addView(status);
+        status.setText("RECEIVER STANDBY  //  HTTPS only · visual video feed suppressed");status.setTypeface(android.graphics.Typeface.MONOSPACE,android.graphics.Typeface.NORMAL); root.addView(status);
         web = new WebView(this);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true);
@@ -65,7 +66,7 @@ public class BrowserActivity extends Activity {
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) { address.setText(url); if(!saving) status.setText("Loading…"); }
             @Override public void onPageFinished(WebView view, String url) {
                 installAudioOnlyMode(view);
-                if(!saving) status.setText("Audio-only browser · video images stay hidden");
+                if(!saving) status.setText("SIGNAL LOCKED  //  audio channel available · video feed suppressed");
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) status.setText("Website unavailable. Your organiser still works offline.");

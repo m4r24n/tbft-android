@@ -25,8 +25,9 @@ final class LibraryScreen {
     private void doors(boolean open){doorsOpen=open;activity.getPreferences(0).edit().putBoolean("library_open",open).apply();refresh.run();}
     void render(LinearLayout body){
         JSONObject doc=repo.wardrobe();LibraryRules.ensure(doc);
+        TextView unit=Ui.text(body,"03B / KNOWLEDGE ARCHIVE",11,Ui.ACCENT);unit.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);unit.setLetterSpacing(.12f);
         LinearLayout title=new LinearLayout(activity);title.setGravity(Gravity.CENTER_VERTICAL);body.addView(title);
-        TextView heading=Ui.heading(title,"Library",29);heading.setTypeface(Typeface.create("serif",Typeface.NORMAL));heading.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+        TextView heading=Ui.heading(title,"Library",29);heading.setTypeface(Typeface.DEFAULT_BOLD);heading.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
         Ui.button(title,"+ Add",()->edit(null));Ui.button(title,"Shelves",this::shelves).setTextSize(12);
         LinearLayout tabs=Ui.chips(body);String[][] choices={{"all","All"},{"reading","Reading"},{"unread","To read"},{"finished","Finished"},{"lent","Lent"}};
         for(String[] choice:choices){Button b=Ui.button(tabs,choice[1]+(choice[0].equals("all")?" · "+LibraryRules.count(doc,"all","all"):""),()->{status=choice[0];shelf="all";bookX=0;refresh.run();});b.setTextSize(12);Ui.selected(b,status.equals(choice[0]));}

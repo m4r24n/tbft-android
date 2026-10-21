@@ -36,10 +36,12 @@ final class TaskAnnouncementRules {
 
     static String speech(List<String> titles){
         if(titles.isEmpty())return "";
-        StringBuilder out=new StringBuilder("You have ").append(titles.size()).append(titles.size()==1?" task":" tasks").append(" remaining. ");
+        StringBuilder out=new StringBuilder("Field unit, come in. This is TBFT base with your status report. Operational board shows ")
+                .append(titles.size()).append(titles.size()==1?" task":" tasks").append(" remaining. ");
         int count=Math.min(titles.size(),MAX_TITLES);
         for(int i=0;i<count;i++)out.append(titles.get(i)).append(". ");
-        if(titles.size()>MAX_TITLES)out.append("And ").append(titles.size()-MAX_TITLES).append(" more.");
+        if(titles.size()>MAX_TITLES)out.append("And ").append(titles.size()-MAX_TITLES).append(" more. ");
+        out.append("Acknowledge and proceed. Base out.");
         return out.toString();
     }
 }

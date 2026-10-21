@@ -3,6 +3,8 @@ package info.marzan.tbft;
 import android.app.*;
 import android.content.*;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.os.Build;
 import android.speech.tts.*;
 import java.time.Instant;
@@ -57,13 +59,18 @@ final class TaskAnnouncements {
         holder[0]=new TextToSpeech(context.getApplicationContext(),status->{
             TextToSpeech voice=holder[0];
             if(status!=TextToSpeech.SUCCESS||voice==null){if(voice!=null)voice.shutdown();active=null;return;}
-            active=voice;voice.setLanguage(Locale.getDefault());voice.setSpeechRate(.94f);
+            active=voice;voice.setLanguage(Locale.getDefault());voice.setSpeechRate(1.02f);voice.setPitch(.88f);
             voice.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
             voice.setOnUtteranceProgressListener(new UtteranceProgressListener(){
-                private void done(){TextToSpeech current=active;if(current==voice){active=null;current.shutdown();}}
+                private void done(){signal(ToneGenerator.TONE_PROP_BEEP2,120);TextToSpeech current=active;if(current==voice){active=null;current.shutdown();}}
                 @Override public void onStart(String id){} @Override public void onDone(String id){done();} @Override public void onError(String id){done();}
             });
-            voice.speak(words,TextToSpeech.QUEUE_FLUSH,null,"tbft-scheduled-tasks");
+            signal(ToneGenerator.TONE_PROP_BEEP,140);
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->voice.speak(words,TextToSpeech.QUEUE_FLUSH,null,"tbft-radio-briefing"),260);
         });
+    }
+    private static void signal(int tone,int duration){
+        ToneGenerator generator=new ToneGenerator(AudioManager.STREAM_MUSIC,55);generator.startTone(tone,duration);
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(generator::release,duration+80L);
     }
 }
