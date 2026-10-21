@@ -8,7 +8,7 @@ import java.util.Set;
 /** Pure, deterministic merge rules. Never silently choose a winner for overlapping edits. */
 final class SyncRules {
     static final Set<String> WRITABLE = new HashSet<>(Arrays.asList(
-            "projects", "project_nodes", "tasks", "task_messages", "reminders", "workspaces", "wardrobes"));
+            "projects", "project_nodes", "tasks", "task_messages", "reminders", "workspaces", "wardrobes", "chat_messages"));
     private static final Set<String> GENERATED = new HashSet<>(Arrays.asList("created_at", "updated_at", "edited_at"));
 
     static boolean equal(Object a, Object b) {

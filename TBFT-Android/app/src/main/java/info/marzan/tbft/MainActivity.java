@@ -26,13 +26,14 @@ public class MainActivity extends Activity {
     private boolean registered;
     private String moreSection="", projectSection="Tasks", month="";
     private WardrobeScreen wardrobeScreen;
+    private ChatScreen chatScreen;
     private LinearLayout moreRow;
     private int menuCount;
     private final Handler clock = new Handler(Looper.getMainLooper());
     private final Runnable tick = new Runnable() { public void run() { render(); clock.postDelayed(this, 60000); } };
     private final BroadcastReceiver receiver = new BroadcastReceiver() { @Override public void onReceive(Context c, Intent i) { render(); } };
     @Override public void onCreate(Bundle state) {
-        super.onCreate(state); repo = TbftRepository.get(this); wardrobeScreen=new WardrobeScreen(this,repo,this::render);
+        super.onCreate(state); repo = TbftRepository.get(this); wardrobeScreen=new WardrobeScreen(this,repo,this::render);chatScreen=new ChatScreen(this,repo,this::render);
         if (state != null) { wardrobeScreen.restoreState(state); tab = state.getString("tab", "Today"); date = state.getString("date", ""); projectId = state.getString("project", ""); }
         SyncJobs.schedule(this);TaskAnnouncements.schedule(this);render();
     }
@@ -70,14 +71,15 @@ public class MainActivity extends Activity {
         String location = tab + ":" + (tab.equals("Wardrobe")?wardrobeScreen.location():"") + ":" + projectId + ":" + moreSection + ":" + projectSection + ":" + (tab.equals("Today") ? repo.today() : date);
         int previousY = contentScroll != null && location.equals(renderedPage) ? contentScroll.getScrollY() : 0;
         renderedPage = location;
-        page = column(); page.setBackgroundColor(BG);
+        page = column(); page.setBackground(new RuggedDrawable(BG,true));
         page.setOnApplyWindowInsetsListener((v, insets) -> {
             v.setPadding(dp(14) + insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
                     dp(14) + insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()); return insets;
         });
         LinearLayout header = new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand = new TextView(this); brand.setText("TBFT  //  FIELD UNIT"); brand.setLetterSpacing(.08f); brand.setTextColor(INK); brand.setTextSize(18); brand.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        TextView brand = new TextView(this); brand.setText("TBFT // UNIT"); brand.setLetterSpacing(.08f); brand.setTextColor(INK); brand.setTextSize(17); brand.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        button(header, "Chat", () -> {tab="Chat";projectId="";render();});
         button(header, "Browser", () -> startActivity(new Intent(this, BrowserActivity.class)));
         page.addView(header);
         sync = text(page, "● LOCAL CACHE  //  "+repo.summary(), 11, ACCENT); sync.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);sync.setPadding(0,dp(8),0,dp(8)); sync.setOnClickListener(v -> queue());
@@ -94,6 +96,7 @@ public class MainActivity extends Activity {
                 case "Projects": if (projectId.isEmpty()) projects(); else project(); break;
                 case "Calendar": calendar(); break;
                 case "Wardrobe": wardrobeScreen.render(body); break;
+                case "Chat": chatScreen.render(body); break;
                 case "More": more(); break;
                 default: board(repo.today(), false);
             }
@@ -246,6 +249,12 @@ public class MainActivity extends Activity {
                 text(voice,enabled?"Announcements are on":"Announcements are off",18,INK).setTypeface(null,Typeface.BOLD);
                 text(voice,enabled?"AUTO BRIEFING // ARMED":"AUTO BRIEFING // SILENT",11,enabled?ACCENT:Ui.BRASS).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
                 text(voice,"Incoming radio-style status reports from TBFT base. Connection tone, operational brief and sign-off—all generated on this device.",14,MUTED);
+                LinearLayout modes=new LinearLayout(this);voice.addView(modes);
+                for(String mode:new String[]{"radio","waki"}){
+                    Button modeButton=button(modes,mode.toUpperCase(Locale.ROOT),()->{TaskAnnouncements.setMode(this,mode);render();});
+                    Ui.selected(modeButton,TaskAnnouncements.mode(this).equals(mode));modeButton.setLayoutParams(new LinearLayout.LayoutParams(0,dp(50),1));
+                }
+                text(voice,TaskAnnouncements.mode(this).equals("waki")?"WAKI // clipped field voice with randomized signal crackle":"RADIO // clear base-station voice and channel tones",12,MUTED);
                 button(voice,"Speak remaining tasks now",()->{
                     if(repo.remainingTaskTitles().isEmpty())toast("No remaining tasks to announce.");
                     else TaskAnnouncements.speakNow(this);

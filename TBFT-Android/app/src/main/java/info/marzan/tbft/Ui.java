@@ -10,7 +10,8 @@ import android.widget.*;
 /** TBFT field-terminal palette: readable steel, phosphor and amber instrumentation. */
 final class Ui {
     static final int BG=0xff111512, CARD=0xff1b211d, INK=0xffe8e4d5, MUTED=0xff9da69c,
-            LINE=0xff3b443d, ACCENT=0xff9fbd72, SAGE=0xff273128, BRASS=0xffc59446, DARK=0xff0b0e0c;
+            LINE=0xff3b443d, ACCENT=0xff9fbd72, SAGE=0xff273128, BRASS=0xffc59446, DARK=0xff0b0e0c,
+            RUST=0xff8e4e32, OXIDE=0xff512d24;
     static int dp(Context c,int n) { return Math.round(n*c.getResources().getDisplayMetrics().density); }
     static GradientDrawable shape(Context c,int color,int radius) {
         GradientDrawable d=new GradientDrawable(); d.setColor(color); d.setCornerRadius(dp(c,Math.min(radius,8))); d.setStroke(dp(c,1),LINE); return d;
@@ -22,7 +23,7 @@ final class Ui {
     }
     static TextView heading(LinearLayout p,String value,int size) { TextView t=text(p,value,size,INK); t.setTypeface(null,Typeface.BOLD); return t; }
     static LinearLayout card(LinearLayout p) {
-        Context c=p.getContext(); LinearLayout v=column(c); v.setPadding(dp(c,16),dp(c,14),dp(c,16),dp(c,14)); v.setBackground(shape(c,CARD,8));
+        Context c=p.getContext(); LinearLayout v=column(c); v.setPadding(dp(c,16),dp(c,14),dp(c,16),dp(c,14)); v.setBackground(new RuggedDrawable(CARD));
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2); lp.setMargins(0,dp(c,6),0,dp(c,6)); p.addView(v,lp); return v;
     }
     static Button button(LinearLayout p,String label,Runnable action) {

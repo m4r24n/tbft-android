@@ -61,7 +61,7 @@ final class SyncEngine {
         // One optional collection failing must not suppress tasks or other collections.
         try { store.ingest("project_nodes", children("project_nodes", "project_id", projects)); } catch (Exception e) { unavailable.add("phases"); }
         try { store.ingest("task_messages", children("task_messages", "task_id", tasks)); } catch (Exception e) { unavailable.add("task notes"); }
-        for (String table : new String[]{"reminders", "project_files", "activity_log", "wardrobes"}) {
+        for (String table : new String[]{"reminders", "project_files", "activity_log", "wardrobes", "chat_messages"}) {
             try { store.ingest(table, api.all(table, filter)); } catch (Exception e) { unavailable.add(table.replace('_', ' ')); }
         }
         if (!unavailable.isEmpty()) throw new java.io.IOException("Tasks synced. Retrying " + String.join(", ", unavailable) + "; existing local copies kept.");
