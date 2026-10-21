@@ -1,32 +1,44 @@
 package info.marzan.tbft;
 
 import java.time.*;
-import java.util.List;
+import java.util.*;
 
-/** Pure scheduling and speech rules for the offline hourly briefing. */
+/** Pure scheduling and speech rules for offline task briefings. */
 final class TaskAnnouncementRules {
-    static final int START_HOUR=8, END_HOUR=22, MAX_TITLES=8;
+    static final int MAX_TITLES=8;
 
-    static Instant next(Instant now,String timezone){
-        ZoneId zone=ZoneId.of(timezone);ZonedDateTime local=now.atZone(zone);
-        ZonedDateTime candidate=local.withMinute(0).withSecond(0).withNano(0);
-        if(!candidate.isAfter(local))candidate=candidate.plusHours(1);
-        if(candidate.getHour()<START_HOUR)candidate=candidate.withHour(START_HOUR);
-        else if(candidate.getHour()>END_HOUR)candidate=candidate.plusDays(1).withHour(START_HOUR);
-        return candidate.toInstant();
+    static List<String> normalise(Collection<String> values){
+        TreeSet<String> sorted=new TreeSet<>();
+        if(values!=null)for(String value:values)try{
+            LocalTime time=LocalTime.parse(value);
+            sorted.add(String.format(Locale.ROOT,"%02d:%02d",time.getHour(),time.getMinute()));
+        }catch(Exception ignored){}
+        return new ArrayList<>(sorted);
     }
 
-    static boolean allowed(Instant now,String timezone){
-        int hour=now.atZone(ZoneId.of(timezone)).getHour();
-        return hour>=START_HOUR&&hour<=END_HOUR;
+    static Instant next(Instant now,String timezone,Collection<String> values){
+        ZoneId zone=ZoneId.of(timezone);ZonedDateTime local=now.atZone(zone);
+        List<String> times=normalise(values);
+        if(times.isEmpty())throw new IllegalArgumentException("At least one announcement time is required");
+        for(String value:times){
+            LocalTime time=LocalTime.parse(value);
+            ZonedDateTime candidate=local.toLocalDate().atTime(time).atZone(zone);
+            if(candidate.isAfter(local))return candidate.toInstant();
+        }
+        return local.toLocalDate().plusDays(1).atTime(LocalTime.parse(times.get(0))).atZone(zone).toInstant();
+    }
+
+    static boolean allowed(Instant now,String timezone,Collection<String> values){
+        LocalTime local=now.atZone(ZoneId.of(timezone)).toLocalTime().withSecond(0).withNano(0);
+        String value=String.format(Locale.ROOT,"%02d:%02d",local.getHour(),local.getMinute());
+        return normalise(values).contains(value);
     }
 
     static String speech(List<String> titles){
         if(titles.isEmpty())return "";
-        StringBuilder out=new StringBuilder("You have ").append(titles.size())
-                .append(titles.size()==1?" task":" tasks").append(" remaining. ");
+        StringBuilder out=new StringBuilder("You have ").append(titles.size()).append(titles.size()==1?" task":" tasks").append(" remaining. ");
         int count=Math.min(titles.size(),MAX_TITLES);
-        for(int i=0;i<count;i++)out.append(titles.get(i)).append(i==count-1?". ":". ");
+        for(int i=0;i<count;i++)out.append(titles.get(i)).append(". ");
         if(titles.size()>MAX_TITLES)out.append("And ").append(titles.size()-MAX_TITLES).append(" more.");
         return out.toString();
     }

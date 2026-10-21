@@ -228,7 +228,7 @@ public class MainActivity extends Activity {
         if(moreSection.isEmpty()){
             menuCount=0;
             menu("Workspace","People, timezone and daily rhythm",this::settings);
-            menu("Hourly voice","Remaining tasks · 08:00–22:00",()->{moreSection="Hourly voice";render();});
+            menu("Task announcements",String.join(" · ",TaskAnnouncements.times(this)),()->{moreSection="Task announcements";render();});
             menu("Archive","Finished chapters, ready to restore",()->{moreSection="Archive";render();});
             menu("Files","Project documents and links",()->{moreSection="Files";render();});
             menu("Activity","Recent changes in your workspace",()->{moreSection="Activity";render();});
@@ -237,11 +237,19 @@ public class MainActivity extends Activity {
         }
         button(body,"‹ Your space",()->{moreSection="";render();});
         switch(moreSection){
-            case "Hourly voice":
+            case "Task announcements":
                 LinearLayout voice=card(body);boolean enabled=TaskAnnouncements.enabled(this);
+                AnnouncementClockView clockArt=new AnnouncementClockView(this,TaskAnnouncements.times(this));
+                voice.addView(clockArt,new LinearLayout.LayoutParams(-1,dp(150)));
                 text(voice,enabled?"Announcements are on":"Announcements are off",18,INK).setTypeface(null,Typeface.BOLD);
-                text(voice,"At the top of every hour · 08:00–22:00\nUses tasks saved on this phone and works offline.",14,MUTED);
-                button(voice,enabled?"Turn off hourly voice":"Turn on hourly voice",()->{TaskAnnouncements.setEnabled(this,!enabled);render();});
+                text(voice,"Choose quiet moments that suit your day. Uses tasks saved on this phone and works offline.",14,MUTED);
+                for(String time:TaskAnnouncements.times(this)){
+                    LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);voice.addView(row);
+                    TextView label=text(row,time,18,INK);label.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);label.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+                    button(row,"Remove",()->{if(!TaskAnnouncements.removeTime(this,time))toast("Keep at least one announcement time.");render();});
+                }
+                button(voice,"+ Tune another time",this::announcementTime);
+                button(voice,enabled?"Turn off announcements":"Turn on announcements",()->{TaskAnnouncements.setEnabled(this,!enabled);render();});
                 button(voice,"Speak remaining tasks now",()->{
                     if(repo.remainingTaskTitles().isEmpty())toast("No remaining tasks to announce.");
                     else TaskAnnouncements.speakNow(this);
@@ -268,6 +276,28 @@ public class MainActivity extends Activity {
         LinearLayout c=card(moreRow);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(144),1);lp.setMargins(dp(3),dp(5),dp(3),dp(5));c.setLayoutParams(lp);
         text(c,title+"  ›",17,INK).setTypeface(null,Typeface.BOLD);text(c,subtitle,13,MUTED);
         c.setOnClickListener(v->action.run());c.setFocusable(true);c.setContentDescription(title+", "+subtitle);
+    }
+    private void announcementTime(){
+        final int[] value={8,0};
+        LinearLayout panel=column();panel.setPadding(dp(22),dp(18),dp(22),dp(8));
+        text(panel,"TURN THE KNOBS",11,ACCENT).setLetterSpacing(.15f);
+        TextView display=text(panel,"08:00",42,Color.rgb(244,174,65));display.setGravity(Gravity.CENTER);display.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+        display.setBackground(Ui.shape(this,Color.rgb(34,32,27),14));display.setPadding(dp(10),dp(18),dp(10),dp(18));
+        LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER);panel.addView(controls);
+        Runnable update=()->display.setText(String.format(Locale.ROOT,"%02d:%02d",value[0],value[1]));
+        radioKnob(controls,"−\nHOUR",()->{value[0]=(value[0]+23)%24;update.run();});
+        radioKnob(controls,"+\nHOUR",()->{value[0]=(value[0]+1)%24;update.run();});
+        radioKnob(controls,"−\nMIN",()->{value[1]=(value[1]+55)%60;update.run();});
+        radioKnob(controls,"+\nMIN",()->{value[1]=(value[1]+5)%60;update.run();});
+        text(panel,"Minutes tune in five-minute steps.",12,MUTED).setGravity(Gravity.CENTER);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Tune announcement time").setView(panel).setNegativeButton("Cancel",null)
+                .setPositiveButton("Save",null).create();
+        dialog.setOnShowListener(x->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{TaskAnnouncements.addTime(this,value[0],value[1]);dialog.dismiss();render();}));dialog.show();
+    }
+    private void radioKnob(LinearLayout parent,String label,Runnable action){
+        Button knob=new Button(this);knob.setText(label);knob.setTextSize(10);knob.setTextColor(Color.rgb(238,229,211));knob.setAllCaps(false);knob.setPadding(0,0,0,0);
+        knob.setBackground(Ui.shape(this,Color.rgb(82,70,59),100));knob.setOnClickListener(v->action.run());
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(68),1);lp.setMargins(dp(4),dp(14),dp(4),dp(10));parent.addView(knob,lp);
     }
     private void files(String project) {
         int count = 0;

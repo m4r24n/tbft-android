@@ -8,7 +8,7 @@ public class TaskAnnouncementReceiver extends BroadcastReceiver {
         TaskAnnouncements.schedule(context);
         if(!TaskAnnouncements.enabled(context))return;
         TbftRepository repo=TbftRepository.get(context);
-        if(TaskAnnouncementRules.allowed(Instant.now(),repo.timezone()))
+        if(TaskAnnouncementRules.allowed(Instant.now(),repo.timezone(),TaskAnnouncements.times(context)))
             TaskAnnouncements.speak(context,repo.remainingTaskTitles());
     }
 }
