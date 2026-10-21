@@ -34,7 +34,7 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); repo = TbftRepository.get(this); wardrobeScreen=new WardrobeScreen(this,repo,this::render);
         if (state != null) { wardrobeScreen.restoreState(state); tab = state.getString("tab", "Today"); date = state.getString("date", ""); projectId = state.getString("project", ""); }
-        SyncJobs.schedule(this); render();
+        SyncJobs.schedule(this);TaskAnnouncements.schedule(this);render();
     }
     @Override protected void onStart() {
         super.onStart();
@@ -228,6 +228,7 @@ public class MainActivity extends Activity {
         if(moreSection.isEmpty()){
             menuCount=0;
             menu("Workspace","People, timezone and daily rhythm",this::settings);
+            menu("Hourly voice","Remaining tasks · 08:00–22:00",()->{moreSection="Hourly voice";render();});
             menu("Archive","Finished chapters, ready to restore",()->{moreSection="Archive";render();});
             menu("Files","Project documents and links",()->{moreSection="Files";render();});
             menu("Activity","Recent changes in your workspace",()->{moreSection="Activity";render();});
@@ -236,6 +237,15 @@ public class MainActivity extends Activity {
         }
         button(body,"‹ Your space",()->{moreSection="";render();});
         switch(moreSection){
+            case "Hourly voice":
+                LinearLayout voice=card(body);boolean enabled=TaskAnnouncements.enabled(this);
+                text(voice,enabled?"Announcements are on":"Announcements are off",18,INK).setTypeface(null,Typeface.BOLD);
+                text(voice,"At the top of every hour · 08:00–22:00\nUses tasks saved on this phone and works offline.",14,MUTED);
+                button(voice,enabled?"Turn off hourly voice":"Turn on hourly voice",()->{TaskAnnouncements.setEnabled(this,!enabled);render();});
+                button(voice,"Speak remaining tasks now",()->{
+                    if(repo.remainingTaskTitles().isEmpty())toast("No remaining tasks to announce.");
+                    else TaskAnnouncements.speakNow(this);
+                });break;
             case "Archive":
                 int count=0;
                 for(String table:new String[]{"tasks","projects"})for(OfflineStore.Record r:repo.rows(table))if(!Json.text(r.body,"deleted_at").isEmpty()){

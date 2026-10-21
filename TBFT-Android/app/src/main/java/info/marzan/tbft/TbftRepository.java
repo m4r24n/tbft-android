@@ -164,4 +164,12 @@ final class TbftRepository {
         }
         return lines;
     }
+    List<String> remainingTaskTitles(){
+        List<String> titles=new ArrayList<>();String date=today(),account=vault.account();
+        for(OfflineStore.Record row:rows("tasks"))if(account.equals(Json.text(row.body,"owner_user_id"))
+                &&Json.text(row.body,"completed_at").isEmpty()
+                &&BoardRules.appears(row.body,date,timezone(),rollover(),Instant.now()))
+            titles.add(Json.text(row.body,"title"));
+        return titles;
+    }
 }

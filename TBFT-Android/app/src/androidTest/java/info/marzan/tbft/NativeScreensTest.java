@@ -55,6 +55,9 @@ public class NativeScreensTest {
         assertTrue(device.wait(Until.hasObject(By.text("Today")),30000));shot(context,device,"01-today");
         device.findObject(By.text("More")).click();assertTrue(device.wait(Until.hasObject(By.text("Your space")),3000));
         assertNull(device.findObject(By.text("Recent activity")));assertNull(device.findObject(By.text("Restore")));shot(context,device,"02-more");
+        device.findObject(By.textStartsWith("Hourly voice")).click();assertTrue(device.wait(Until.hasObject(By.text("Announcements are on")),3000));
+        assertNotNull(device.findObject(By.text("Speak remaining tasks now")));shot(context,device,"02b-hourly-voice");
+        device.findObject(By.text("‹ Your space")).click();device.waitForIdle();
         device.findObject(By.text("Projects")).click();assertTrue(device.wait(Until.hasObject(By.text("A more thoughtful home")),3000));shot(context,device,"03-projects");
         device.findObject(By.text("Calendar")).click();assertTrue(device.wait(Until.hasObject(By.text("Back to today")),3000));shot(context,device,"04-calendar");
         device.findObject(By.text("Wardrobe")).click();assertTrue(device.wait(Until.hasObject(By.text("Open wardrobe")),3000));shot(context,device,"05-wardrobe-closed");

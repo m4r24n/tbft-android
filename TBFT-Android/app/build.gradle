@@ -10,8 +10,8 @@ android {
         applicationId 'info.marzan.tbft.nativeapp'
         minSdk 26
         targetSdk 35
-        versionCode 105
-        versionName '2.3.1'
+        versionCode 106
+        versionName '2.4.0'
         resValue 'string', 'app_name', 'TBFT Native'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }

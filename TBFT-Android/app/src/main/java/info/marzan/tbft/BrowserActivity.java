@@ -63,7 +63,10 @@ public class BrowserActivity extends Activity {
                 status.setText("Only HTTPS websites can open here."); return true;
             }
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) { address.setText(url); if(!saving) status.setText("Loading…"); }
-            @Override public void onPageFinished(WebView view, String url) { if(!saving) status.setText("Close returns to your organiser"); }
+            @Override public void onPageFinished(WebView view, String url) {
+                installAudioOnlyMode(view);
+                if(!saving) status.setText("Audio-only browser · video images stay hidden");
+            }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) status.setText("Website unavailable. Your organiser still works offline.");
             }
@@ -74,6 +77,9 @@ public class BrowserActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient() {
             @Override public void onPermissionRequest(PermissionRequest request) { request.deny(); }
             @Override public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) { callback.invoke(origin, false, false); }
+            @Override public void onShowCustomView(View view,WebChromeClient.CustomViewCallback callback) {
+                callback.onCustomViewHidden();status.setText("Fullscreen video is hidden. Use the audio-only control on the page.");
+            }
         });
         web.setDownloadListener((url, agent, disposition, mime, size) -> download(url,agent,disposition,mime));
         web.setOnLongClickListener(v->{
@@ -140,6 +146,16 @@ public class BrowserActivity extends Activity {
         web.loadUrl(uri.toString());
         ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(), 0);
         web.requestFocus();
+    }
+    private void installAudioOnlyMode(WebView view){
+        String script="(function(){if(window.__tbftAudioOnly)return;window.__tbftAudioOnly=true;"+
+            "var css=document.createElement('style');css.textContent='video{opacity:0!important;visibility:hidden!important;pointer-events:none!important} video::cue{display:none!important}.tbft-audio-only{display:flex!important;align-items:center!important;justify-content:center!important;min-height:64px!important;background:#202820!important;color:#fff!important;border:0!important;border-radius:12px!important;padding:14px 18px!important;margin:8px auto!important;font:600 16px sans-serif!important;position:relative!important;z-index:2147483647!important}';document.documentElement.appendChild(css);"+
+            "function convert(v){if(v.dataset.tbftAudioOnly)return;v.dataset.tbftAudioOnly='1';v.disablePictureInPicture=true;v.removeAttribute('poster');var b=document.createElement('button');b.className='tbft-audio-only';b.textContent=v.paused?'Play audio':'Pause audio';b.setAttribute('aria-label','Audio-only video control');b.onclick=function(e){e.preventDefault();e.stopPropagation();if(v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}else v.pause();};v.addEventListener('play',function(){b.textContent='Pause audio'});v.addEventListener('pause',function(){b.textContent='Play audio'});v.parentNode.insertBefore(b,v.nextSibling);}"+
+            "function scan(){document.querySelectorAll('video').forEach(convert);}"+
+            "scan();new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});"+
+            "document.addEventListener('fullscreenchange',function(){if(document.fullscreenElement)document.exitFullscreen().catch(function(){})},true);"+
+            "})();";
+        view.evaluateJavascript(script,null);
     }
     @Override public void onBackPressed() { if (web.canGoBack()) web.goBack(); else closeBrowser(); }
     @Override public void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out); web.saveState(out); out.putString("downloadUrl",downloadUrl);out.putString("downloadAgent",downloadAgent);out.putString("downloadMime",downloadMime); }

@@ -11,6 +11,7 @@ import org.robolectric.*;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowAlertDialog;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import static org.junit.Assert.*;
@@ -71,5 +72,12 @@ public class NativeOfflineTest {
         assertEquals(2,lines.size()); assertTrue(lines.get(0).contains("Local reminder"));
         repo.store().save("tasks",Json.merge(repo.store().get("tasks",taskId).body,Json.of("completed_at",java.time.Instant.now().toString())));
         assertEquals(1,repo.widgetLines().size());
+    }
+    @Test public void hourlyVoiceUsesOnlyMyRemainingTasks(){
+        repo.store().save("reminders",Json.of("id",UUID.randomUUID().toString(),"title","Do not speak this reminder","owner_user_id",account,"reminder_date",repo.today()));
+        repo.store().save("tasks",Json.of("id",UUID.randomUUID().toString(),"title","Partner task","owner_user_id","other-user","original_date",repo.today()));
+        assertEquals(Collections.singletonList("Offline test task"),repo.remainingTaskTitles());
+        repo.store().save("tasks",Json.merge(repo.store().get("tasks",taskId).body,Json.of("completed_at",Instant.now().toString())));
+        assertTrue(repo.remainingTaskTitles().isEmpty());
     }
 }

@@ -34,6 +34,7 @@
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
+        <receiver android:name=".TaskAnnouncementReceiver" android:exported="false" />
         <receiver
             android:name=".TbftWidgetProvider"
             android:exported="false">
