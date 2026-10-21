@@ -228,7 +228,7 @@ public class MainActivity extends Activity {
         if(moreSection.isEmpty()){
             menuCount=0;
             menu("Workspace","People, timezone and daily rhythm",this::settings);
-            menu("Task announcements",String.join(" · ",TaskAnnouncements.times(this)),()->{moreSection="Task announcements";render();});
+            menu("Hourly voice · scheduled",String.join(" · ",TaskAnnouncements.times(this)),()->{moreSection="Task announcements";render();});
             menu("Archive","Finished chapters, ready to restore",()->{moreSection="Archive";render();});
             menu("Files","Project documents and links",()->{moreSection="Files";render();});
             menu("Activity","Recent changes in your workspace",()->{moreSection="Activity";render();});
