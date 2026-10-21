@@ -246,6 +246,10 @@ public class MainActivity extends Activity {
                 text(voice,enabled?"Announcements are on":"Announcements are off",18,INK).setTypeface(null,Typeface.BOLD);
                 text(voice,enabled?"AUTO BRIEFING // ARMED":"AUTO BRIEFING // SILENT",11,enabled?ACCENT:Ui.BRASS).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
                 text(voice,"Incoming radio-style status reports from TBFT base. Connection tone, operational brief and sign-off—all generated on this device.",14,MUTED);
+                button(voice,"Speak remaining tasks now",()->{
+                    if(repo.remainingTaskTitles().isEmpty())toast("No remaining tasks to announce.");
+                    else TaskAnnouncements.speakNow(this);
+                });
                 for(String time:TaskAnnouncements.times(this)){
                     LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);voice.addView(row);
                     TextView label=text(row,time,18,INK);label.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);label.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
@@ -253,10 +257,7 @@ public class MainActivity extends Activity {
                 }
                 button(voice,"+ Tune another preset",this::announcementTime);
                 button(voice,enabled?"Disarm auto briefing":"Arm auto briefing",()->{TaskAnnouncements.setEnabled(this,!enabled);render();});
-                button(voice,"Speak remaining tasks now",()->{
-                    if(repo.remainingTaskTitles().isEmpty())toast("No remaining tasks to announce.");
-                    else TaskAnnouncements.speakNow(this);
-                });break;
+                break;
             case "Archive":
                 int count=0;
                 for(String table:new String[]{"tasks","projects"})for(OfflineStore.Record r:repo.rows(table))if(!Json.text(r.body,"deleted_at").isEmpty()){
