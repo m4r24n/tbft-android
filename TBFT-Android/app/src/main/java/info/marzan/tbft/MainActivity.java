@@ -277,7 +277,7 @@ public class MainActivity extends Activity {
     private void menu(String title,String subtitle,Runnable action){
         if(menuCount++%2==0){moreRow=new LinearLayout(this);moreRow.setBaselineAligned(false);body.addView(moreRow);}
         LinearLayout c=card(moreRow);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(144),1);lp.setMargins(dp(3),dp(5),dp(3),dp(5));c.setLayoutParams(lp);
-        text(c,title.toUpperCase(Locale.ROOT)+"  ›",15,INK).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);text(c,subtitle,12,MUTED);
+        text(c,title+"  ›",15,INK).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);text(c,subtitle,12,MUTED);
         c.setOnClickListener(v->action.run());c.setFocusable(true);c.setContentDescription(title+", "+subtitle);
     }
     private void announcementTime(){
