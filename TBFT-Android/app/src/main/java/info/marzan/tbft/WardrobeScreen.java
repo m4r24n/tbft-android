@@ -33,14 +33,13 @@ final class WardrobeScreen {
     private void navigate(String value){section=value;category="all";search="";railX=0;refresh.run();}
     private void doors(boolean value){doorsOpen=value;activity.getPreferences(0).edit().putBoolean("wardrobe_open",value).apply();refresh.run();}
     void render(LinearLayout body) {
-        TextView unit=Ui.text(body,"03 / EQUIPMENT LOCKER",11,Ui.ACCENT);unit.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);unit.setLetterSpacing(.12f);
         LinearLayout roomTabs=new LinearLayout(activity);body.addView(roomTabs);
         Button wardrobe=Ui.button(roomTabs,"Wardrobe",()->{room="wardrobe";refresh.run();});wardrobe.setLayoutParams(new LinearLayout.LayoutParams(0,dp(50),1));Ui.selected(wardrobe,room.equals("wardrobe"));
         Button books=Ui.button(roomTabs,"Library",()->{room="library";refresh.run();});books.setLayoutParams(new LinearLayout.LayoutParams(0,dp(50),1));Ui.selected(books,room.equals("library"));
         if(room.equals("library")){library.render(body);return;}
         JSONObject doc=repo.wardrobe();
         LinearLayout title=new LinearLayout(activity);title.setGravity(Gravity.CENTER_VERTICAL);body.addView(title);
-        TextView heading=Ui.heading(title,"Wardrobe",29);heading.setTypeface(Typeface.DEFAULT_BOLD);heading.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+        TextView heading=Ui.heading(title,"Wardrobe",29);heading.setTypeface(Typeface.DEFAULT_BOLD);heading.setContentDescription("Equipment Locker, Wardrobe");heading.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
         Ui.button(title,"+ Add",()->edit(null));Ui.button(title,"Shelves",this::shelves).setTextSize(12);
         LinearLayout tabs=Ui.chips(body);
         String[][] sections={{"available","Closet"},{"in_use","In Use"},{"laundry","Laundry"},{"outfits","Outfits"}};
