@@ -88,9 +88,17 @@ public class MainActivity extends Activity {
         LinearLayout header = new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL);
         TextView brand = new TextView(this); brand.setText("TBFT // UNIT"); brand.setLetterSpacing(.08f); brand.setTextColor(INK); brand.setTextSize(17); brand.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
-        button(header, "Chat", () -> {tab="Chat";projectId="";render();});
-        button(header, "Browser", () -> startActivity(new Intent(this, BrowserActivity.class)));
         screen.addView(header);
+        LinearLayout instruments=new LinearLayout(this);instruments.setGravity(Gravity.CENTER_VERTICAL);
+        for(Object[] item:new Object[][]{
+                {"COMMS",(Runnable)()->startActivity(new Intent(this,CommsActivity.class))},
+                {"CHAT",(Runnable)()->{tab="Chat";projectId="";render();}},
+                {"MAP",(Runnable)()->startActivity(new Intent(this,FieldMapActivity.class))},
+                {"BROWSER",(Runnable)()->startActivity(new Intent(this,BrowserActivity.class))}}){
+            Button instrument=button(instruments,(String)item[0],(Runnable)item[1]);
+            instrument.setTextSize(10);instrument.setPadding(0,0,0,0);instrument.setLayoutParams(new LinearLayout.LayoutParams(0,dp(44),1));
+        }
+        screen.addView(instruments);
         sync = text(screen, "● LOCAL CACHE  //  "+repo.summary(), 11, ACCENT); sync.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);sync.setPadding(0,dp(8),0,dp(8)); sync.setOnClickListener(v -> queue());
         if(repo.workspaceId().isEmpty()){if(missionTicker!=null){missionTicker.stop();missionTicker=null;missionTickerTab="";}}
         else{
