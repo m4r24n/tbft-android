@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TBFT</string>
     <string name="widget_description">Today’s remaining TBFT tasks</string>
     <string name="aod_widget_description">TBFT AOD — centered remaining tasks</string>
 </resources>
