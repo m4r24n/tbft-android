@@ -273,6 +273,10 @@ public class MainActivity extends Activity {
                 text(voice,"FIELD BROADCAST UNIT",11,ACCENT).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
                 text(voice,enabled?"Announcements are on":"Announcements are off",18,INK).setTypeface(null,Typeface.BOLD);
                 text(voice,enabled?"AUTO BRIEFING // ARMED":"AUTO BRIEFING // SILENT",11,enabled?ACCENT:Ui.BRASS).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+                button(voice,"Speak remaining tasks now",()->{
+                    if(repo.remainingTaskTitles().isEmpty())toast("No remaining tasks to announce.");
+                    else TaskAnnouncements.speakNow(this);
+                });
                 text(voice,"Incoming radio-style status reports from TBFT base. Connection tone, operational brief and sign-off—all generated on this device.",14,MUTED);
                 LinearLayout modes=new LinearLayout(this);voice.addView(modes);
                 for(String mode:new String[]{"radio","waki"}){
@@ -280,10 +284,6 @@ public class MainActivity extends Activity {
                     Ui.selected(modeButton,TaskAnnouncements.mode(this).equals(mode));modeButton.setLayoutParams(new LinearLayout.LayoutParams(0,dp(50),1));
                 }
                 text(voice,TaskAnnouncements.mode(this).equals("waki")?"WAKI // clipped field voice with randomized signal crackle":"RADIO // clear base-station voice and channel tones",12,MUTED);
-                button(voice,"Speak remaining tasks now",()->{
-                    if(repo.remainingTaskTitles().isEmpty())toast("No remaining tasks to announce.");
-                    else TaskAnnouncements.speakNow(this);
-                });
                 for(String time:TaskAnnouncements.times(this)){
                     LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);voice.addView(row);
                     TextView label=text(row,time,18,INK);label.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);label.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
