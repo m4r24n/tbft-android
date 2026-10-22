@@ -104,8 +104,8 @@ public class NativeScreensTest {
         device.findObject(By.textStartsWith("Outfits")).click();shot(context,device,"09-outfits");
         device.findObject(By.text("Browser")).click();assertTrue(device.wait(Until.hasObject(By.text("Website address")),5000));shot(context,device,"10-browser");
         device.pressBack();device.waitForIdle();
-        assertTrue(device.wait(Until.hasObject(By.textStartsWith("Closet ·")),5000));
-        device.findObject(By.textStartsWith("Closet ·")).click();device.waitForIdle();
+        UiObject2 closet=device.wait(Until.findObject(By.textStartsWith("Closet ·")),5000);assertNotNull(closet);
+        closet.click();device.waitForIdle();
         UiScrollable wardrobePages=new UiScrollable(new UiSelector().descriptionStartsWith("Wardrobe compartments"));wardrobePages.setAsHorizontalList();wardrobePages.scrollForward();device.waitForIdle();
         assertNotNull(device.findObject(By.descStartsWith("Open Underwear,")));assertNotNull(device.findObject(By.descStartsWith("Open Tank tops,")));
         shot(context,device,"11-more-compartments");
