@@ -27,13 +27,16 @@ public class MainActivity extends Activity {
     private String moreSection="", projectSection="Tasks", month="";
     private WardrobeScreen wardrobeScreen;
     private ChatScreen chatScreen;
+    private TerminalAudio terminalAudio;
+    private MissionTickerView missionTicker;
+    private String missionTickerTab="";
     private LinearLayout moreRow;
     private int menuCount;
     private final Handler clock = new Handler(Looper.getMainLooper());
     private final Runnable tick = new Runnable() { public void run() { render(); clock.postDelayed(this, 60000); } };
     private final BroadcastReceiver receiver = new BroadcastReceiver() { @Override public void onReceive(Context c, Intent i) { render(); } };
     @Override public void onCreate(Bundle state) {
-        super.onCreate(state); repo = TbftRepository.get(this); wardrobeScreen=new WardrobeScreen(this,repo,this::render);chatScreen=new ChatScreen(this,repo,this::render);
+        super.onCreate(state); repo = TbftRepository.get(this); wardrobeScreen=new WardrobeScreen(this,repo,this::render);chatScreen=new ChatScreen(this,repo,this::render);terminalAudio=new TerminalAudio(this);
         if (state != null) { wardrobeScreen.restoreState(state); tab = state.getString("tab", "Today"); date = state.getString("date", ""); projectId = state.getString("project", ""); }
         SyncJobs.schedule(this);TaskAnnouncements.schedule(this);render();
     }
@@ -44,8 +47,9 @@ public class MainActivity extends Activity {
         registered = true; repo.requestSync(); clock.postDelayed(tick, 60000);
     }
     @Override protected void onStop() {
-        clock.removeCallbacks(tick); if (registered) { unregisterReceiver(receiver); registered = false; } super.onStop();
+        clock.removeCallbacks(tick); if (registered) { unregisterReceiver(receiver); registered = false; } if(missionTicker!=null){missionTicker.stop();missionTicker=null;missionTickerTab="";} super.onStop();
     }
+    @Override protected void onDestroy(){if(terminalAudio!=null)terminalAudio.release();super.onDestroy();}
     // Before API 33 there is no NOT_EXPORTED flag; a signature permission restricts senders.
     @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
     private void registerLegacyReceiver() {
@@ -88,6 +92,11 @@ public class MainActivity extends Activity {
         button(header, "Browser", () -> startActivity(new Intent(this, BrowserActivity.class)));
         screen.addView(header);
         sync = text(screen, "● LOCAL CACHE  //  "+repo.summary(), 11, ACCENT); sync.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);sync.setPadding(0,dp(8),0,dp(8)); sync.setOnClickListener(v -> queue());
+        if(repo.workspaceId().isEmpty()){if(missionTicker!=null){missionTicker.stop();missionTicker=null;missionTickerTab="";}}
+        else{
+            if(missionTicker==null||!missionTickerTab.equals(tab)){if(missionTicker!=null)missionTicker.stop();missionTickerTab=tab;missionTicker=new MissionTickerView(this,repo.remainingTaskTitles(),terminalAudio,()->{tab="Today";projectId="";moreSection="";render();});}
+            if(missionTicker.getParent()!=null)((ViewGroup)missionTicker.getParent()).removeView(missionTicker);screen.addView(missionTicker,new LinearLayout.LayoutParams(-1,dp(55)));
+        }
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true);
         contentScroll = scroll;
         body = column(); body.setPadding(0, dp(10), 0, dp(20)); scroll.addView(body);
@@ -240,6 +249,7 @@ public class MainActivity extends Activity {
             menuCount=0;
             menu("Workspace","Crew, timezone and operating rhythm",this::settings);
             menu("Hourly voice · scheduled","Field broadcast · "+String.join(" · ",TaskAnnouncements.times(this)),()->{moreSection="Task announcements";render();});
+            menu("Audio & signals","Mission ticker relay sounds",()->{moreSection="Audio & signals";render();});
             menu("Archive","Secured records, ready to restore",()->{moreSection="Archive";render();});
             menu("Files","Documents, references and maps",()->{moreSection="Files";render();});
             menu("Activity","Local operations log",()->{moreSection="Activity";render();});
@@ -248,6 +258,14 @@ public class MainActivity extends Activity {
         }
         button(body,"‹ Your space",()->{moreSection="";render();});
         switch(moreSection){
+            case "Audio & signals":
+                LinearLayout signal=card(body);boolean tickerSound=TerminalAudio.tickerEnabled(this);
+                text(signal,"MISSION TELEMETRY",11,ACCENT).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+                text(signal,"Technical relay ticks",18,INK).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+                text(signal,"Quiet character pulses, reverse erase clicks and a short transition chirp. Silent mode and zero media volume are always respected.",14,MUTED);
+                button(signal,tickerSound?"Ticker sounds · ON":"Ticker sounds · OFF",()->{TerminalAudio.setTickerEnabled(this,!tickerSound);render();});
+                text(signal,"The blinking cursor is always silent.",12,MUTED);
+                break;
             case "Task announcements":
                 LinearLayout voice=card(body);boolean enabled=TaskAnnouncements.enabled(this);
                 AnnouncementClockView clockArt=new AnnouncementClockView(this,TaskAnnouncements.times(this));
