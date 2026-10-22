@@ -18,7 +18,7 @@ final class WardrobeScreen {
     private final Runnable refresh;
     private String section="available", category="all", use="all", search="";
     private String room="wardrobe";
-    private int shelfPage,railX;
+    private int shelfPage,railX,viewRevision;
     private boolean doorsOpen;
     private LinearLayout results;
     private final LibraryScreen library;
@@ -26,7 +26,7 @@ final class WardrobeScreen {
         activity=a;repo=r;this.refresh=refresh;doorsOpen=a.getPreferences(0).getBoolean("wardrobe_open",false);library=new LibraryScreen(a,r,refresh);
     }
     private int dp(int n) { return Ui.dp(activity,n); }
-    String location(){return room+":"+(room.equals("library")?library.location():section+":"+category+":"+shelfPage);}
+    String location(){return room+":"+(room.equals("library")?library.location():section+":"+category+":"+shelfPage+":"+viewRevision);}
     void saveState(Bundle b){b.putString("life_room",room);b.putString("wardrobe_section",section);b.putString("wardrobe_category",category);b.putString("wardrobe_use",use);b.putString("wardrobe_search",search);b.putInt("wardrobe_page",shelfPage);b.putInt("wardrobe_rail",railX);library.saveState(b);}
     void restoreState(Bundle b){room=b.getString("life_room","wardrobe");section=b.getString("wardrobe_section","available");category=b.getString("wardrobe_category","all");use=b.getString("wardrobe_use","all");search=b.getString("wardrobe_search","");shelfPage=b.getInt("wardrobe_page",0);railX=b.getInt("wardrobe_rail",0);library.restoreState(b);}
     boolean back(){if(room.equals("library"))return library.back();if(!category.equals("all")){category="all";search="";railX=0;refresh.run();return true;}if(!section.equals("available")){navigate("available");return true;}return false;}
@@ -202,7 +202,7 @@ final class WardrobeScreen {
         List<String> kinds=Arrays.asList("top","shirt","bottom","shorts","layer","one_piece","shoes","other");
         Spinner shape=p.select("Default clothing shape",Arrays.asList("T-shirt / top","Shirt","Pants / jeans","Shorts","Jacket / layer","Dress / one piece","Shoes / footwear","Other / underwear"),0);
         p.action("Add shelf",()->{String title=name.getText().toString(),kind=kinds.get(selectedIndex(shape,kinds.size()));
-            repo.wardrobe(v->WardrobeRules.category(v,title,kind),error->activity.runOnUiThread(()->{if(error.isEmpty()){p.dialog.dismiss();if(parent!=null)parent.dismiss();refresh.run();toast("Shelf added");}else toast(error);}));});p.show();
+            repo.wardrobe(v->WardrobeRules.category(v,title,kind),error->activity.runOnUiThread(()->{if(error.isEmpty()){p.dialog.dismiss();if(parent!=null)parent.dismiss();viewRevision++;refresh.run();toast("Shelf added");}else toast(error);}));});p.show();
     }
     private void editShelf(String id) {
         JSONObject doc=repo.wardrobe();String title=WardrobeRules.categoryName(doc,id);Panel p=new Panel(title+" shelf");EditText name=p.input("Shelf name",title);
@@ -216,7 +216,7 @@ final class WardrobeScreen {
             String destination=target==null?"":destinations.get(selectedIndex(target,destinations.size()));
             new AlertDialog.Builder(activity).setTitle("Delete "+title+" shelf?").setMessage(count==0?"Remove this empty shelf from the wardrobe?":"Move all its clothes to "+WardrobeRules.categoryName(doc,destination)+" and remove this shelf? Their availability and laundry status stay the same.")
                 .setNegativeButton("Cancel",null).setPositiveButton("Delete shelf",(dialog,which)->{
-                    repo.wardrobe(v->WardrobeRules.removeCategory(v,id,destination),error->activity.runOnUiThread(()->{if(error.isEmpty()){p.dialog.dismiss();if(category.equals(id)){category="all";search="";railX=0;}refresh.run();toast("Shelf removed");}else toast(error);}));
+                    repo.wardrobe(v->WardrobeRules.removeCategory(v,id,destination),error->activity.runOnUiThread(()->{if(error.isEmpty()){p.dialog.dismiss();if(category.equals(id)){category="all";search="";railX=0;}viewRevision++;refresh.run();toast("Shelf removed");}else toast(error);}));
                 }).show();
         });p.show();
     }
