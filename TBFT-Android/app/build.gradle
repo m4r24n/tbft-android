@@ -20,6 +20,11 @@ android {
             applicationIdSuffix '.debug'
             resValue 'string', 'app_name', 'TBFT Test'
         }
+        release {
+            // The distributed field device targets modern Android phones/tablets.
+            // Keep debug universal so the x86_64 CI emulator can still verify it.
+            ndk { abiFilters 'arm64-v8a' }
+        }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
