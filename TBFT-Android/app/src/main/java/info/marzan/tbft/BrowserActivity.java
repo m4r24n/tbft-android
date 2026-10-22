@@ -4,6 +4,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
+import android.graphics.Paint;
 import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
@@ -16,7 +19,7 @@ import android.widget.*;
 /** Deliberately small browser in its own process and WebView data directory. No native bridge. */
 public class BrowserActivity extends Activity {
     private static boolean dataDirectorySet;
-    private WebView web;
+    private FieldWebView web;
     private EditText address;
     private TextView status;
     private String downloadUrl="",downloadAgent="",downloadMime="application/octet-stream";
@@ -39,6 +42,7 @@ public class BrowserActivity extends Activity {
         button(controls, "Close", this::closeBrowser); button(controls, "‹", () -> { if (web.canGoBack()) web.goBack(); });
         button(controls, "›", () -> { if (web.canGoForward()) web.goForward(); });
         button(controls, "Reload", () -> web.reload());
+        boolean fieldRate=getPreferences(0).getBoolean("field_rate",true);
         root.addView(controls);
         LinearLayout location = new LinearLayout(this);
         address = new EditText(this); address.setSingleLine(true); address.setTextColor(Ui.INK);address.setBackground(Ui.shape(this,Ui.DARK,4));address.setPadding(14,8,14,8);
@@ -49,8 +53,12 @@ public class BrowserActivity extends Activity {
         location.addView(address, new LinearLayout.LayoutParams(0, -2, 1));
         button(location, "Go", this::navigate); root.addView(location);
         status = new TextView(this); status.setTextColor(Ui.MUTED); status.setPadding(16, 8, 16, 8);
-        status.setText("RECEIVER STANDBY  //  HTTPS only · visual video feed suppressed");status.setTypeface(android.graphics.Typeface.MONOSPACE,android.graphics.Typeface.NORMAL); root.addView(status);
-        web = new WebView(this);
+        status.setText("RECEIVER STANDBY  //  MONO "+(fieldRate?"8 FPS":"SMOOTH")+" · visual video feed suppressed");status.setTypeface(android.graphics.Typeface.MONOSPACE,android.graphics.Typeface.NORMAL); root.addView(status);
+        web = new FieldWebView(this);web.setFieldRate(fieldRate);
+        Paint mono=new Paint();ColorMatrix matrix=new ColorMatrix();matrix.setSaturation(0);mono.setColorFilter(new ColorMatrixColorFilter(matrix));web.setLayerType(View.LAYER_TYPE_SOFTWARE,mono);
+        Button rate=Ui.button(controls,fieldRate?"8 FPS":"SMOOTH",()->{});rate.setTypeface(android.graphics.Typeface.MONOSPACE,android.graphics.Typeface.BOLD);rate.setTextSize(10);
+        rate.setOnClickListener(v->{boolean on=!web.fieldRate;web.setFieldRate(on);getPreferences(0).edit().putBoolean("field_rate",on).apply();rate.setText(on?"8 FPS":"SMOOTH");status.setText(on?"FIELD DISPLAY // 8 FPS scan engaged":"FIELD DISPLAY // smooth scan engaged");});
+        rate.setLayoutParams(new LinearLayout.LayoutParams(0,Ui.dp(this,48),1));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false); settings.setAllowContentAccess(false);
@@ -150,7 +158,7 @@ public class BrowserActivity extends Activity {
     }
     private void installAudioOnlyMode(WebView view){
         String script="(function(){if(window.__tbftAudioOnly)return;window.__tbftAudioOnly=true;"+
-            "var css=document.createElement('style');css.textContent='video{opacity:0!important;visibility:hidden!important;pointer-events:none!important} video::cue{display:none!important}.tbft-audio-only{display:flex!important;align-items:center!important;justify-content:center!important;min-height:64px!important;background:#202820!important;color:#fff!important;border:0!important;border-radius:12px!important;padding:14px 18px!important;margin:8px auto!important;font:600 16px sans-serif!important;position:relative!important;z-index:2147483647!important}';document.documentElement.appendChild(css);"+
+            "var css=document.createElement('style');css.textContent='html{filter:grayscale(1) contrast(1.08)!important;background:#050505!important}body{background:#080808!important}body,body *:not([class*=icon]):not(i){font-family:monospace!important}video{opacity:0!important;visibility:hidden!important;pointer-events:none!important} video::cue{display:none!important}.tbft-audio-only{display:flex!important;align-items:center!important;justify-content:center!important;min-height:64px!important;background:#161616!important;color:#fff!important;border:1px solid #777!important;border-radius:2px!important;padding:14px 18px!important;margin:8px auto!important;font:600 16px monospace!important;position:relative!important;z-index:2147483647!important}';document.documentElement.appendChild(css);"+
             "function convert(v){if(v.dataset.tbftAudioOnly)return;v.dataset.tbftAudioOnly='1';v.disablePictureInPicture=true;v.removeAttribute('poster');var b=document.createElement('button');b.className='tbft-audio-only';b.textContent=v.paused?'Play audio':'Pause audio';b.setAttribute('aria-label','Audio-only video control');b.onclick=function(e){e.preventDefault();e.stopPropagation();if(v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}else v.pause();};v.addEventListener('play',function(){b.textContent='Pause audio'});v.addEventListener('pause',function(){b.textContent='Play audio'});v.parentNode.insertBefore(b,v.nextSibling);}"+
             "function scan(){document.querySelectorAll('video').forEach(convert);}"+
             "scan();new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});"+
@@ -161,4 +169,18 @@ public class BrowserActivity extends Activity {
     @Override public void onBackPressed() { if (web.canGoBack()) web.goBack(); else closeBrowser(); }
     @Override public void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out); web.saveState(out); out.putString("downloadUrl",downloadUrl);out.putString("downloadAgent",downloadAgent);out.putString("downloadMime",downloadMime); }
     @Override protected void onDestroy() { cancelled=true;downloads.shutdown(); if (web != null) { web.stopLoading(); web.destroy(); } super.onDestroy(); }
+
+    /** Low-refresh display affects painting only; page scripts, audio and downloads remain full speed. */
+    private static final class FieldWebView extends WebView {
+        boolean fieldRate;private long nextFrame;private boolean queued;
+        FieldWebView(android.content.Context context){super(context);}
+        void setFieldRate(boolean enabled){fieldRate=enabled;nextFrame=0;super.invalidate();}
+        @Override public void invalidate(){
+            if(!fieldRate){super.invalidate();return;}long now=android.os.SystemClock.uptimeMillis();
+            if(now>=nextFrame){nextFrame=now+125;super.invalidate();return;}
+            if(!queued){queued=true;postDelayed(()->{queued=false;nextFrame=android.os.SystemClock.uptimeMillis()+125;drawNow();},Math.max(1,nextFrame-now));}
+        }
+        @Override public void invalidate(int left,int top,int right,int bottom){invalidate();}
+        private void drawNow(){super.invalidate();}
+    }
 }
