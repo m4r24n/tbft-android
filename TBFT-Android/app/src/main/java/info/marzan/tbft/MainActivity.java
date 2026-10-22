@@ -91,10 +91,10 @@ public class MainActivity extends Activity {
         screen.addView(header);
         LinearLayout instruments=new LinearLayout(this);instruments.setGravity(Gravity.CENTER_VERTICAL);
         for(Object[] item:new Object[][]{
-                {"COMMS",(Runnable)()->startActivity(new Intent(this,CommsActivity.class))},
-                {"CHAT",(Runnable)()->{tab="Chat";projectId="";render();}},
-                {"MAP",(Runnable)()->startActivity(new Intent(this,FieldMapActivity.class))},
-                {"BROWSER",(Runnable)()->startActivity(new Intent(this,BrowserActivity.class))}}){
+                {"Comms",(Runnable)()->startActivity(new Intent(this,CommsActivity.class))},
+                {"Chat",(Runnable)()->{tab="Chat";projectId="";render();}},
+                {"Map",(Runnable)()->startActivity(new Intent(this,FieldMapActivity.class))},
+                {"Browser",(Runnable)()->startActivity(new Intent(this,BrowserActivity.class))}}){
             Button instrument=button(instruments,(String)item[0],(Runnable)item[1]);
             instrument.setTextSize(10);instrument.setPadding(0,0,0,0);instrument.setLayoutParams(new LinearLayout.LayoutParams(0,dp(44),1));
         }
