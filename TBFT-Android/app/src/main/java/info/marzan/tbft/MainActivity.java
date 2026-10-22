@@ -76,17 +76,22 @@ public class MainActivity extends Activity {
             v.setPadding(dp(14) + insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
                     dp(14) + insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()); return insets;
         });
+        LinearLayout hardware=new LinearLayout(this);hardware.setGravity(Gravity.CENTER_VERTICAL);hardware.setPadding(dp(10),dp(7),dp(10),dp(5));
+        TextView plate=text(hardware,"СО-1-98   //   TBFT M3",11,0xffb5ae91);plate.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);plate.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+        TextView lamp=text(hardware,"●  LINK",11,0xff91ae55);lamp.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);page.addView(hardware);
+        LinearLayout screen=column();screen.setPadding(dp(12),dp(12),dp(12),dp(10));screen.setBackground(new CrtScreenDrawable());
+        LinearLayout.LayoutParams screenLp=new LinearLayout.LayoutParams(-1,0,1);screenLp.setMargins(dp(4),0,dp(4),dp(5));page.addView(screen,screenLp);
         LinearLayout header = new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL);
         TextView brand = new TextView(this); brand.setText("TBFT // UNIT"); brand.setLetterSpacing(.08f); brand.setTextColor(INK); brand.setTextSize(17); brand.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
         button(header, "Chat", () -> {tab="Chat";projectId="";render();});
         button(header, "Browser", () -> startActivity(new Intent(this, BrowserActivity.class)));
-        page.addView(header);
-        sync = text(page, "● LOCAL CACHE  //  "+repo.summary(), 11, ACCENT); sync.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);sync.setPadding(0,dp(8),0,dp(8)); sync.setOnClickListener(v -> queue());
+        screen.addView(header);
+        sync = text(screen, "● LOCAL CACHE  //  "+repo.summary(), 11, ACCENT); sync.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);sync.setPadding(0,dp(8),0,dp(8)); sync.setOnClickListener(v -> queue());
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true);
         contentScroll = scroll;
         body = column(); body.setPadding(0, dp(10), 0, dp(20)); scroll.addView(body);
-        page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        screen.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         if (repo.workspaceId().isEmpty()) {
             title("Your organiser, on your phone", "Connect once to download your TBFT workspace. Saved tasks and notes then work without internet.");
             button(body, "Connect TBFT account", this::login);
@@ -107,7 +112,9 @@ public class MainActivity extends Activity {
             Ui.selected(b,tab.equals(label));
             b.setLayoutParams(new LinearLayout.LayoutParams(0, dp(54), 1)); b.setTextSize(11); b.setPadding(0,0,0,0);
         }
-        page.addView(nav); setContentView(page); page.requestApplyInsets();
+        screen.addView(nav);
+        TextView chassis=text(page,"AUX  ○     FILTER  ◉     CHARGE  ●     REV 2.6",10,0xff8f8975);chassis.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);chassis.setGravity(Gravity.CENTER);chassis.setPadding(0,dp(2),0,dp(7));
+        setContentView(page); page.requestApplyInsets();
         if (previousY > 0) scroll.post(() -> scroll.scrollTo(0,previousY));
     }
     private void board(String selected, boolean calendar) {

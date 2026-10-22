@@ -32,10 +32,10 @@ public class BrowserActivity extends Activity {
             WebView.setDataDirectorySuffix("tbft-browser"); dataDirectorySet = true;
         }
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Ui.BG);
+        root.setBackground(new RuggedDrawable(Ui.BG,true));root.setPadding(8,8,8,8);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
-            v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
-                    insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()); return insets;
+            v.setPadding(8+insets.getSystemWindowInsetLeft(), 8+insets.getSystemWindowInsetTop(),
+                    8+insets.getSystemWindowInsetRight(), 8+insets.getSystemWindowInsetBottom()); return insets;
         });
         TextView unit=new TextView(this);unit.setText("06 / SIGNAL RECEIVER");unit.setTextColor(Ui.ACCENT);unit.setTypeface(android.graphics.Typeface.MONOSPACE,android.graphics.Typeface.BOLD);unit.setTextSize(11);unit.setLetterSpacing(.12f);unit.setPadding(16,10,16,6);root.addView(unit);
         LinearLayout controls = new LinearLayout(this);
@@ -54,7 +54,7 @@ public class BrowserActivity extends Activity {
         button(location, "Go", this::navigate); root.addView(location);
         status = new TextView(this); status.setTextColor(Ui.MUTED); status.setPadding(16, 8, 16, 8);
         status.setText("RECEIVER STANDBY  //  MONO "+(fieldRate?"8 FPS":"SMOOTH")+" · visual video feed suppressed");status.setTypeface(android.graphics.Typeface.MONOSPACE,android.graphics.Typeface.NORMAL); root.addView(status);
-        web = new FieldWebView(this);web.setFieldRate(fieldRate);
+        web = new FieldWebView(this);web.setFieldRate(fieldRate);web.setBackgroundColor(Ui.SCREEN);
         Paint mono=new Paint();ColorMatrix matrix=new ColorMatrix();matrix.setSaturation(0);mono.setColorFilter(new ColorMatrixColorFilter(matrix));web.setLayerType(View.LAYER_TYPE_SOFTWARE,mono);
         Button rate=Ui.button(controls,fieldRate?"8 FPS":"SMOOTH",()->{});rate.setTypeface(android.graphics.Typeface.MONOSPACE,android.graphics.Typeface.BOLD);rate.setTextSize(10);
         rate.setOnClickListener(v->{boolean on=!web.fieldRate;web.setFieldRate(on);getPreferences(0).edit().putBoolean("field_rate",on).apply();rate.setText(on?"8 FPS":"SMOOTH");status.setText(on?"FIELD DISPLAY // 8 FPS scan engaged":"FIELD DISPLAY // smooth scan engaged");});
