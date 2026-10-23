@@ -5,6 +5,7 @@ import android.content.Intent;
 public class LocalClockReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context, Intent intent) {
         SyncJobs.schedule(context);
+        TaskAnnouncements.schedule(context);
         TbftRepository.get(context).changed();
     }
 }

@@ -10,8 +10,8 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="TBFT · TODAY"
-        android:textColor="#F2FFFFFF"
+        android:text="TBFT // DAILY OPERATIONS"
+        android:textColor="#FFB8D482"
         android:textSize="13sp"
         android:textStyle="bold" />
 
@@ -22,15 +22,15 @@
         android:layout_marginTop="2dp"
         android:layout_marginBottom="8dp"
         android:text="Open TBFT once to connect"
-        android:textColor="#A6FFFFFF"
+        android:textColor="#FF99A49A"
         android:textSize="11sp" />
 
-    <TextView android:id="@+id/task1" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
-    <TextView android:id="@+id/task2" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
-    <TextView android:id="@+id/task3" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
-    <TextView android:id="@+id/task4" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
-    <TextView android:id="@+id/task5" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
-    <TextView android:id="@+id/task6" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#F2FFFFFF" android:textSize="14sp" />
+    <TextView android:id="@+id/task1" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#FFE8E4D5" android:textSize="14sp" />
+    <TextView android:id="@+id/task2" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#FFE8E4D5" android:textSize="14sp" />
+    <TextView android:id="@+id/task3" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#FFE8E4D5" android:textSize="14sp" />
+    <TextView android:id="@+id/task4" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#FFE8E4D5" android:textSize="14sp" />
+    <TextView android:id="@+id/task5" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#FFE8E4D5" android:textSize="14sp" />
+    <TextView android:id="@+id/task6" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:paddingTop="3dp" android:paddingBottom="3dp" android:textColor="#FFE8E4D5" android:textSize="14sp" />
 
     <TextView
         android:id="@+id/empty_text"
@@ -39,7 +39,7 @@
         android:layout_weight="1"
         android:gravity="center_vertical"
         android:text="Open TBFT once to connect"
-        android:textColor="#BFFFFFFF"
+        android:textColor="#FF9DA69C"
         android:textSize="13sp" />
 
     <TextView
@@ -47,7 +47,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="Updates automatically every 30 min"
-        android:textColor="#7FFFFFFF"
+        android:text="LOCAL CACHE · relay check every 30 min"
+        android:textColor="#FF7D887E"
         android:textSize="10sp" />
 </LinearLayout>

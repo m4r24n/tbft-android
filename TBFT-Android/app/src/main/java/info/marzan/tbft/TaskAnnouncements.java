@@ -1,0 +1,100 @@
+package info.marzan.tbft;
+
+import android.app.*;
+import android.content.*;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.media.AudioFormat;
+import android.media.AudioTrack;
+import android.media.ToneGenerator;
+import android.os.Build;
+import android.speech.tts.*;
+import java.time.Instant;
+import java.util.*;
+
+/** Device-only scheduled task announcements. No network or cloud job is involved. */
+final class TaskAnnouncements {
+    static final String ACTION="info.marzan.tbft.SCHEDULED_TASK_ANNOUNCEMENT";
+    private static final String PREFS="tbft_task_announcements_v1",ENABLED="enabled",TIMES="times_v2",MODE="voice_mode";
+    private static final Set<String> DEFAULT_TIMES=new LinkedHashSet<>(Arrays.asList("08:00","21:00"));
+    private static volatile TextToSpeech active;
+
+    static boolean enabled(Context context){return context.getSharedPreferences(PREFS,0).getBoolean(ENABLED,true);}
+    static String mode(Context context){return context.getSharedPreferences(PREFS,0).getString(MODE,"radio");}
+    static void setMode(Context context,String value){context.getSharedPreferences(PREFS,0).edit().putString(MODE,value.equals("waki")?"waki":"radio").apply();}
+    static List<String> times(Context context){
+        Set<String> saved=context.getSharedPreferences(PREFS,0).getStringSet(TIMES,null);
+        return TaskAnnouncementRules.normalise(saved==null?DEFAULT_TIMES:saved);
+    }
+    static void addTime(Context context,int hour,int minute){
+        Set<String> changed=new LinkedHashSet<>(times(context));
+        changed.add(String.format(Locale.ROOT,"%02d:%02d",hour,minute));saveTimes(context,changed);
+    }
+    static boolean removeTime(Context context,String time){
+        Set<String> changed=new LinkedHashSet<>(times(context));
+        if(changed.size()<=1)return false;
+        changed.remove(time);saveTimes(context,changed);return true;
+    }
+    private static void saveTimes(Context context,Set<String> values){
+        context.getSharedPreferences(PREFS,0).edit().putStringSet(TIMES,new LinkedHashSet<>(values)).apply();schedule(context);
+    }
+    static void setEnabled(Context context,boolean value){
+        context.getSharedPreferences(PREFS,0).edit().putBoolean(ENABLED,value).apply();
+        if(value)schedule(context);else cancel(context);
+    }
+    static void schedule(Context context){
+        if(!enabled(context)){cancel(context);return;}
+        TbftRepository repo=TbftRepository.get(context);
+        long at=TaskAnnouncementRules.next(Instant.now(),repo.timezone(),times(context)).toEpochMilli();
+        AlarmManager alarms=(AlarmManager)context.getSystemService(Context.ALARM_SERVICE);if(alarms==null)return;
+        PendingIntent pending=pending(context);
+        if(Build.VERSION.SDK_INT>=23)alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,at,pending);else alarms.set(AlarmManager.RTC_WAKEUP,at,pending);
+    }
+    static void cancel(Context context){AlarmManager alarms=(AlarmManager)context.getSystemService(Context.ALARM_SERVICE);if(alarms!=null)alarms.cancel(pending(context));}
+    private static PendingIntent pending(Context context){
+        Intent intent=new Intent(context,TaskAnnouncementReceiver.class).setAction(ACTION);
+        return PendingIntent.getBroadcast(context,74,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+    }
+    static void speakNow(Context context){speak(context,TbftRepository.get(context).remainingTaskTitles());}
+    static void speak(Context context,List<String> titles){
+        String words=TaskAnnouncementRules.speech(titles);if(words.isEmpty())return;
+        if(active!=null){active.stop();active.shutdown();active=null;}
+        final TextToSpeech[] holder=new TextToSpeech[1];
+        holder[0]=new TextToSpeech(context.getApplicationContext(),status->{
+            TextToSpeech voice=holder[0];
+            if(status!=TextToSpeech.SUCCESS||voice==null){if(voice!=null)voice.shutdown();active=null;return;}
+            boolean waki=mode(context).equals("waki");active=voice;voice.setLanguage(Locale.ENGLISH);chooseLocalVoice(voice);voice.setSpeechRate(waki?1.06f:.92f);voice.setPitch(waki?.82f:.94f);
+            voice.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            voice.setOnUtteranceProgressListener(new UtteranceProgressListener(){
+                private void done(){if(waki)walkieBurst(false,null);else signal(ToneGenerator.TONE_PROP_BEEP2,120);TextToSpeech current=active;if(current==voice){active=null;current.shutdown();}}
+                @Override public void onStart(String id){} @Override public void onDone(String id){done();} @Override public void onError(String id){done();}
+            });
+            Runnable speak=()->voice.speak(words,TextToSpeech.QUEUE_FLUSH,null,"tbft-radio-briefing");
+            if(waki)walkieBurst(true,speak);else{signal(ToneGenerator.TONE_PROP_BEEP,140);new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(speak,260);}
+        });
+    }
+    private static void chooseLocalVoice(TextToSpeech voice){
+        Voice best=null;for(Voice candidate:voice.getVoices()){
+            if(candidate.isNetworkConnectionRequired()||candidate.getLocale()==null||!candidate.getLocale().getLanguage().equals(Locale.ENGLISH.getLanguage()))continue;
+            if(best==null||candidate.getQuality()>best.getQuality()||(candidate.getQuality()==best.getQuality()&&candidate.getLatency()<best.getLatency()))best=candidate;
+        }
+        if(best!=null)voice.setVoice(best);
+    }
+    private static void signal(int tone,int duration){
+        ToneGenerator generator=new ToneGenerator(AudioManager.STREAM_MUSIC,55);generator.startTone(tone,duration);
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(generator::release,duration+80L);
+    }
+    /** Short randomized narrow-band crackle that makes each WAKI transmission feel live. */
+    private static void walkieBurst(boolean opening,Runnable after){
+        new Thread(()->{try{
+            Random random=new Random(System.nanoTime());int rate=11025,duration=opening?420+random.nextInt(260):300+random.nextInt(220),count=rate*duration/1000;
+            short[] pcm=new short[count];double phase=0;for(int i=0;i<count;i++){
+                double envelope=Math.sin(Math.PI*i/count);double hiss=(random.nextDouble()*2-1)*(opening?6200:5200);phase+=2*Math.PI*(opening?720:520)/rate;
+                double carrier=Math.sin(phase)*(2100+random.nextInt(1700));if(random.nextInt(23)<4)hiss*=.08;pcm[i]=(short)Math.max(Short.MIN_VALUE,Math.min(Short.MAX_VALUE,(hiss+carrier)*envelope));
+            }
+            AudioTrack track=new AudioTrack.Builder().setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+                    .setAudioFormat(new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()).setBufferSizeInBytes(pcm.length*2).setTransferMode(AudioTrack.MODE_STATIC).build();
+            track.write(pcm,0,pcm.length);track.play();Thread.sleep(duration+40L);track.stop();track.release();
+        }catch(Exception ignored){}finally{if(after!=null)new android.os.Handler(android.os.Looper.getMainLooper()).post(after);}},"tbft-waki-signal").start();
+    }
+}
