@@ -33,6 +33,7 @@ public class MainActivity extends Activity {
     private String missionTickerTab="";
     private LinearLayout moreRow;
     private int menuCount;
+    private boolean startupFailed;
     private final Handler clock = new Handler(Looper.getMainLooper());
     private final Runnable tick = new Runnable() { public void run() { render(); clock.postDelayed(this, 60000); } };
     private final Runnable linkPulse = new Runnable(){public void run(){
@@ -41,15 +42,27 @@ public class MainActivity extends Activity {
     }};
     private final BroadcastReceiver receiver = new BroadcastReceiver() { @Override public void onReceive(Context c, Intent i) { render(); } };
     @Override public void onCreate(Bundle state) {
-        super.onCreate(state); Fullscreen.apply(this);repo = TbftRepository.get(this); wardrobeScreen=new WardrobeScreen(this,repo,this::render);chatScreen=new ChatScreen(this,repo,this::render);terminalAudio=new TerminalAudio(this);
-        if (state != null) { wardrobeScreen.restoreState(state); tab = state.getString("tab", "Today"); date = state.getString("date", ""); projectId = state.getString("project", ""); }
-        SyncJobs.schedule(this);TaskAnnouncements.schedule(this);render();
+        super.onCreate(state);
+        try{
+            Fullscreen.apply(this);repo = TbftRepository.get(this); wardrobeScreen=new WardrobeScreen(this,repo,this::render);chatScreen=new ChatScreen(this,repo,this::render);terminalAudio=new TerminalAudio(this);
+            if (state != null) { wardrobeScreen.restoreState(state); tab = state.getString("tab", "Today"); date = state.getString("date", ""); projectId = state.getString("project", ""); }
+            SyncJobs.schedule(this);TaskAnnouncements.schedule(this);render();
+        }catch(Throwable error){showStartupFailure(error);}
     }
     @Override protected void onStart() {
         super.onStart();
+        if(startupFailed)return;
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(receiver, new IntentFilter(TbftRepository.CHANGED), Context.RECEIVER_NOT_EXPORTED);
         else registerLegacyReceiver();
         registered = true; repo.requestSync(); clock.postDelayed(tick, 60000);clock.post(linkPulse);
+    }
+    private void showStartupFailure(Throwable error){
+        startupFailed=true;clock.removeCallbacksAndMessages(null);String detail=error.getClass().getSimpleName()+": "+(error.getMessage()==null?"No message":error.getMessage());
+        LinearLayout rescue=column();rescue.setPadding(dp(24),dp(40),dp(24),dp(24));rescue.setBackgroundColor(Ui.DARK);
+        TextView code=text(rescue,"STARTUP RECOVERY // LOCAL DATA UNTOUCHED",12,0xffd6aa45);code.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+        text(rescue,"TBFT stopped a startup failure instead of closing.",20,INK).setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+        text(rescue,detail,14,0xffe08b72);text(rescue,"Take a screenshot of this message. Do not clear app storage.",13,MUTED);
+        button(rescue,"Retry startup",this::recreate);button(rescue,"Close safely",this::finish);setContentView(rescue);
     }
     @Override protected void onStop() {
         clock.removeCallbacks(tick);clock.removeCallbacks(linkPulse); if (registered) { unregisterReceiver(receiver); registered = false; } if(missionTicker!=null){missionTicker.stop();missionTicker=null;missionTickerTab="";} super.onStop();
@@ -61,11 +74,12 @@ public class MainActivity extends Activity {
         registerReceiver(receiver,new IntentFilter(TbftRepository.CHANGED),getPackageName()+".permission.LOCAL_UPDATES",null);
     }
     @Override public void onSaveInstanceState(Bundle out) {
-        super.onSaveInstanceState(out); wardrobeScreen.saveState(out); out.putString("tab", tab); out.putString("date", date); out.putString("project", projectId);
+        super.onSaveInstanceState(out); if(wardrobeScreen!=null)wardrobeScreen.saveState(out); out.putString("tab", tab); out.putString("date", date); out.putString("project", projectId);
     }
     @Override protected void onResume(){super.onResume();Fullscreen.apply(this);}
     @Override public void onWindowFocusChanged(boolean focus){super.onWindowFocusChanged(focus);if(focus)Fullscreen.apply(this);}
     @Override public void onBackPressed() {
+        if(startupFailed){finish();return;}
         if(tab.equals("Wardrobe")&&wardrobeScreen.back())return;
         if(!projectId.isEmpty()){projectId="";projectSection="Tasks";render();return;}
         if(!moreSection.isEmpty()){moreSection="";render();return;}
